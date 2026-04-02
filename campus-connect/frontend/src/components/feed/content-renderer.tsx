@@ -117,8 +117,6 @@ export function ContentRenderer({
         }
         
         if (part.type === 'mention') {
-          const username = part.value.slice(1).toLowerCase()
-          
           if (showMentionLinks && part.userId) {
             return (
               <Link

@@ -10,8 +10,7 @@ import { Loader2, Send, MessageCircle, Search, Users, ArrowLeft, MoreVertical, P
 import { formatDate } from '@/lib/utils'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
-import { toast } from 'sonner'
-import type { User, Message } from '@/types'
+import type { User } from '@/types'
 
 export function MessagesPage() {
   const { user } = useAuthStore()
