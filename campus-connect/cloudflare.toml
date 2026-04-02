@@ -5,6 +5,11 @@
 [build.environment]
   NODE_VERSION = "18"
 
+[vars]
+  VITE_API_URL = "https://campus-connect-backend.onrender.com"
+  VITE_SUPABASE_URL = "https://scojbwkysmqyopfmeafd.supabase.co"
+  VITE_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNjb2pid2t5c21xeW9wZm1lYWZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1MTg1NjksImV4cCI6MjA5MDA5NDU2OX0.P3DTBXA8adhQTrYYx07xLwgfrKXzWY6ujTNyJtcWiV4"
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
