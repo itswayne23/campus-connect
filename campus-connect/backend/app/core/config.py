@@ -27,6 +27,7 @@ class Settings(BaseSettings):
         "http://localhost:5173",
         "http://localhost:3000",
         "https://campus-connect.pages.dev",
+        "https://campus-connect.bibek890das.workers.dev",
     ]
     
     class Config:
