@@ -34,6 +34,9 @@ class Settings(BaseSettings):
         case_sensitive = True
 
 
+settings = Settings()
+
+
 def validate_settings():
     if not settings.JWT_SECRET:
         raise ValueError("JWT_SECRET must be set in environment variables")
