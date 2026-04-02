@@ -32,3 +32,6 @@ Thumbs.db
 # Misc
 *.log
 nul
+
+# Cloudflare Pages
+!frontend/.env
