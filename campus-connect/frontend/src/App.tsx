@@ -16,6 +16,7 @@ import { FollowingPage } from '@/pages/following'
 import { BookmarksPage } from '@/pages/bookmarks'
 import { AdminPage } from '@/pages/admin'
 import { BottomNav } from '@/components/layout/bottom-nav'
+import { ErrorBoundary } from '@/components/error-boundary'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuthStore()
@@ -48,7 +49,8 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <Routes>
+    <ErrorBoundary>
+      <Routes>
       <Route
         path="/login"
         element={
@@ -157,5 +159,6 @@ export default function App() {
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </ErrorBoundary>
   )
 }

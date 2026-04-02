@@ -5,6 +5,7 @@ export interface User {
   avatar_url: string | null
   bio: string | null
   university: string | null
+  role?: string
   followers_count: number
   following_count: number
   posts_count: number

@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
+import { useAuthStore } from '@/store/auth-store'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { Loader2, AlertTriangle, Check, X, Trash2 } from 'lucide-react'
+import { Loader2, AlertTriangle, Check, X, Trash2, Lock } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface DeleteRequest {
@@ -19,7 +20,22 @@ interface DeleteRequest {
 
 export function AdminPage() {
   const queryClient = useQueryClient()
+  const { user } = useAuthStore()
   const [activeTab, setActiveTab] = useState<'delete-requests' | 'users' | 'posts'>('delete-requests')
+
+  if (!user || user.role !== 'admin') {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <Card className="p-12 text-center">
+          <div className="h-16 w-16 bg-gray-100 dark:bg-gray-900 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Lock className="h-8 w-8 text-gray-400" />
+          </div>
+          <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
+          <p className="text-gray-500">You don't have permission to access this page.</p>
+        </Card>
+      </div>
+    )
+  }
 
   const { data: deleteRequests, isLoading } = useQuery({
     queryKey: ['delete-requests'],

@@ -14,9 +14,9 @@ class Settings(BaseSettings):
     SUPABASE_ANON_KEY: str = os.getenv("SUPABASE_ANON_KEY", "")
     SUPABASE_SERVICE_KEY: str = os.getenv("SUPABASE_SERVICE_KEY", "")
     
-    JWT_SECRET: str = os.getenv("JWT_SECRET", "your-secret-key-change-in-production")
+    JWT_SECRET: str = os.getenv("JWT_SECRET", "")
     JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     
     HUGGINGFACE_API_KEY: str = os.getenv("HUGGINGFACE_API_KEY", "")
@@ -33,4 +33,14 @@ class Settings(BaseSettings):
         env_file = ".env"
         case_sensitive = True
 
-settings = Settings()
+
+def validate_settings():
+    if not settings.JWT_SECRET:
+        raise ValueError("JWT_SECRET must be set in environment variables")
+    if not settings.SUPABASE_URL:
+        raise ValueError("SUPABASE_URL must be set in environment variables")
+    if not settings.SUPABASE_ANON_KEY:
+        raise ValueError("SUPABASE_ANON_KEY must be set in environment variables")
+
+
+validate_settings()
