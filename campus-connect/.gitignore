@@ -1,0 +1,34 @@
+# Virtual environment
+venv/
+.venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+
+# Node
+node_modules/
+frontend/node_modules/
+Word_Document/node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+*.log
+nul
