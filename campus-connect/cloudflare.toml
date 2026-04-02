@@ -1,5 +1,5 @@
 [build]
-  command = "npm run build"
+  command = "npx tsc --noEmit --skipLibCheck && npm run build"
   directory = "campus-connect/frontend"
 
 [build.environment]
