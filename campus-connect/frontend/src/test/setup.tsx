@@ -29,7 +29,6 @@ vi.mock('react-router-dom', async () => {
         },
       ] as const
     },
-    useNavigate: () => vi.fn(),
     Link: ({ children, to, ...props }: any) => (
       <a href={to} {...props}>{children}</a>
     ),
@@ -163,19 +162,15 @@ class IntersectionObserverMock {
   observe = vi.fn()
   unobserve = vi.fn()
   disconnect = vi.fn()
+  takeRecords = vi.fn()
 }
-window.IntersectionObserver = IntersectionObserverMock
+(window as any).IntersectionObserver = IntersectionObserverMock
 
 // Global fetch mock
 global.fetch = vi.fn()
 
-// Cleanup after each test
-afterEach(() => {
-  vi.clearAllMocks()
-})
-
 // Global test utilities
-global.render = async (component: React.ReactElement) => {
+global.render = async (component: any) => {
   return {
     container: document.createElement('div'),
     unmount: vi.fn(),
