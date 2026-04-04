@@ -437,3 +437,73 @@ ALTER TABLE public.follower_analytics ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Post analytics are viewable by everyone" ON public.post_analytics FOR SELECT USING (true);
 CREATE POLICY "Users can view own follower analytics" ON public.follower_analytics FOR SELECT USING (true);
+
+-- Message reactions table
+CREATE TABLE IF NOT EXISTS public.message_reactions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    message_id UUID REFERENCES public.messages(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    emoji TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(message_id, user_id)
+);
+
+-- Typing indicators table
+CREATE TABLE IF NOT EXISTS public.typing_indicators (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    conversation_with UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    is_typing BOOLEAN DEFAULT true,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(user_id, conversation_with)
+);
+
+-- Message reactions indexes
+CREATE INDEX IF NOT EXISTS idx_message_reactions_message ON public.message_reactions(message_id);
+CREATE INDEX IF NOT EXISTS idx_typing_indicators_users ON public.typing_indicators(user_id, conversation_with);
+
+-- Message reactions policies
+ALTER TABLE public.message_reactions ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Message reactions are viewable by everyone" ON public.message_reactions FOR SELECT USING (true);
+CREATE POLICY "Users can add own reactions" ON public.message_reactions FOR INSERT WITH CHECK (user_id = auth.uid());
+CREATE POLICY "Users can remove own reactions" ON public.message_reactions FOR DELETE USING (user_id = auth.uid());
+
+-- Typing indicators policies
+ALTER TABLE public.typing_indicators ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view typing status in their conversations" ON public.typing_indicators FOR SELECT USING (conversation_with = auth.uid() OR user_id = auth.uid());
+CREATE POLICY "Users can update own typing status" ON public.typing_indicators FOR INSERT WITH CHECK (user_id = auth.uid());
+CREATE POLICY "Users can update own typing status" ON public.typing_indicators FOR UPDATE USING (user_id = auth.uid());
+
+-- Reports table enhancement for better tracking
+CREATE TABLE IF NOT EXISTS public.content_reports (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    reporter_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    reported_user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    reported_post_id UUID REFERENCES public.posts(id) ON DELETE CASCADE,
+    reason TEXT NOT NULL,
+    details TEXT,
+    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'reviewing', 'resolved', 'dismissed')),
+    reviewed_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+    reviewed_at TIMESTAMP WITH TIME ZONE,
+    resolution_notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Content reports indexes
+CREATE INDEX IF NOT EXISTS idx_content_reports_status ON public.content_reports(status);
+CREATE INDEX IF NOT EXISTS idx_content_reports_reported_user ON public.content_reports(reported_user_id);
+CREATE INDEX IF NOT EXISTS idx_content_reports_reported_post ON public.content_reports(reported_post_id);
+
+-- Content reports policies
+ALTER TABLE public.content_reports ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view own reports" ON public.content_reports FOR SELECT USING (reporter_id = auth.uid());
+CREATE POLICY "Users can create reports" ON public.content_reports FOR INSERT WITH CHECK (reporter_id = auth.uid());
+CREATE POLICY "Admins can view all reports" ON public.content_reports FOR SELECT USING (
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+);
+CREATE POLICY "Admins can update reports" ON public.content_reports FOR UPDATE USING (
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+);

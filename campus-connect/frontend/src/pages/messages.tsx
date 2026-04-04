@@ -1,16 +1,17 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { useConversations, useMessages, useSendMessage } from '@/hooks/use-messages'
+import { useUpdateTypingStatus, useTypingStatus, useMarkMessagesRead, useAddReaction, useReadStatus } from '@/hooks/use-message-enhancements'
 import { useAuthStore } from '@/store/auth-store'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
-import { Loader2, Send, MessageCircle, Search, Users, ArrowLeft, MoreVertical, Phone, Video } from 'lucide-react'
+import { Loader2, Send, MessageCircle, Search, Users, ArrowLeft, MoreVertical, Phone, Video, Check, CheckCheck, Smile } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
-import type { User } from '@/types'
+import type { User, Message } from '@/types'
 
 export function MessagesPage() {
   const { user } = useAuthStore()
@@ -25,6 +26,12 @@ export function MessagesPage() {
   const sendMessage = useSendMessage()
 
   const { data: messages, isLoading: loadingMessages, refetch } = useMessages(selectedUserId || '')
+  const updateTyping = useUpdateTypingStatus()
+  const markRead = useMarkMessagesRead()
+  const addReaction = useAddReaction()
+  const { data: typingUsers } = useTypingStatus(selectedUserId || '')
+  const { data: readStatus } = useReadStatus(selectedUserId || '')
+  const [showEmojiPicker, setShowEmojiPicker] = useState<string | null>(null)
 
   useQuery({
     queryKey: ['user', selectedUserId],
@@ -47,8 +54,16 @@ export function MessagesPage() {
     if (selectedUserId) {
       queryClient.invalidateQueries({ queryKey: ['messages', selectedUserId] })
       refetch()
+      markRead.mutate(selectedUserId)
     }
-  }, [selectedUserId, queryClient, refetch])
+  }, [selectedUserId, queryClient, refetch, markRead])
+
+  const handleTyping = useCallback((text: string) => {
+    setMessageText(text)
+    if (selectedUserId) {
+      updateTyping.mutate({ conversationWith: selectedUserId, isTyping: text.length > 0 })
+    }
+  }, [selectedUserId, updateTyping])
 
   const { data: searchResults, isLoading: searchLoading } = useQuery({
     queryKey: ['search', 'users', searchQuery],
@@ -83,8 +98,18 @@ export function MessagesPage() {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSend()
+      if (selectedUserId) {
+        updateTyping.mutate({ conversationWith: selectedUserId, isTyping: false })
+      }
     }
   }
+
+  const handleReaction = (messageId: string, emoji: string) => {
+    addReaction.mutate({ messageId, emoji })
+    setShowEmojiPicker(null)
+  }
+
+  const commonEmojis = ['👍', '❤️', '😂', '😮', '😢', '🙏']
 
   const handleSelectUser = (userId: string) => {
     setSelectedUserId(userId)
@@ -291,6 +316,16 @@ export function MessagesPage() {
               </div>
 
               <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-gray-900/50">
+                {typingUsers && typingUsers.length > 0 && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <div className="flex gap-1">
+                      <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </div>
+                    <span>{typingUsers[0].username} is typing...</span>
+                  </div>
+                )}
                 {loadingMessages ? (
                   <div className="flex justify-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -306,7 +341,7 @@ export function MessagesPage() {
                       return (
                         <div
                           key={msg.id}
-                          className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
+                          className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} group relative`}
                         >
                           {!isOwnMessage && showAvatar && (
                             <Avatar className="h-8 w-8 mr-2">
@@ -332,11 +367,43 @@ export function MessagesPage() {
                               />
                             )}
                             <p className="text-sm">{msg.content}</p>
-                            <p className={`text-xs mt-1 ${
-                              isOwnMessage ? 'text-white/70' : 'text-muted-foreground'
-                            }`}>
-                              {formatDate(msg.created_at)}
-                            </p>
+                            <div className="flex items-center justify-end gap-1 mt-1">
+                              <span className={`text-xs ${
+                                isOwnMessage ? 'text-white/70' : 'text-muted-foreground'
+                              }`}>
+                                {formatDate(msg.created_at)}
+                              </span>
+                              {isOwnMessage && (
+                                msg.is_read ? (
+                                  <CheckCheck className="h-3 w-3 text-blue-200" />
+                                ) : (
+                                  <Check className="h-3 w-3 text-white/70" />
+                                )
+                              )}
+                            </div>
+                            {!isOwnMessage && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
+                                onClick={() => setShowEmojiPicker(showEmojiPicker === msg.id ? null : msg.id)}
+                              >
+                                <Smile className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {showEmojiPicker === msg.id && (
+                              <div className="absolute -top-10 right-0 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-2 flex gap-1 z-10">
+                                {commonEmojis.map((emoji) => (
+                                  <button
+                                    key={emoji}
+                                    onClick={() => handleReaction(msg.id, emoji)}
+                                    className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                                  >
+                                    {emoji}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
                       )
@@ -361,7 +428,7 @@ export function MessagesPage() {
                   <Input
                     placeholder="Type a message..."
                     value={messageText}
-                    onChange={(e) => setMessageText(e.target.value)}
+                    onChange={(e) => handleTyping(e.target.value)}
                     onKeyDown={handleKeyDown}
                     className="flex-1"
                   />

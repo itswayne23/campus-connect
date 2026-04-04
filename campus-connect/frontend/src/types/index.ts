@@ -139,6 +139,16 @@ export interface Message {
   content: string
   media_url: string | null
   is_read: boolean
+  read_at?: string | null
+  created_at: string
+  reactions?: MessageReaction[]
+}
+
+export interface MessageReaction {
+  id: string
+  message_id: string
+  user_id: string
+  emoji: string
   created_at: string
 }
 

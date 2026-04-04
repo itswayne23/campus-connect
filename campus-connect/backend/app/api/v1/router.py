@@ -12,6 +12,8 @@ from .endpoints.scheduled_posts import router as scheduled_posts_router
 from .endpoints.trending import router as trending_router
 from .endpoints.verification import router as verification_router
 from .endpoints.analytics import router as analytics_router
+from .endpoints.message_enhancements import router as message_enhancements_router
+from .endpoints.admin_management import router as admin_management_router
 
 
 api_router = APIRouter()
@@ -22,6 +24,7 @@ api_router.include_router(posts_router, prefix="/posts", tags=["Posts"])
 api_router.include_router(anonymous_router, prefix="/anonymous", tags=["Anonymous"])
 api_router.include_router(comments_router, prefix="", tags=["Comments"])
 api_router.include_router(messages_router, prefix="/messages", tags=["Messages"])
+api_router.include_router(message_enhancements_router, prefix="/messages", tags=["Message Enhancements"])
 api_router.include_router(notifications_router, prefix="/notifications", tags=["Notifications"])
 api_router.include_router(stories_router, prefix="/stories", tags=["Stories"])
 api_router.include_router(drafts_router, prefix="/drafts", tags=["Drafts"])
@@ -29,3 +32,4 @@ api_router.include_router(scheduled_posts_router, prefix="/scheduled", tags=["Sc
 api_router.include_router(trending_router, prefix="/trending", tags=["Trending"])
 api_router.include_router(verification_router, prefix="/verification", tags=["Verification & Badges"])
 api_router.include_router(analytics_router, prefix="/analytics", tags=["Analytics"])
+api_router.include_router(admin_management_router, prefix="/admin", tags=["Admin Management"])
