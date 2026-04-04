@@ -20,6 +20,7 @@ import { ActivityPage } from '@/pages/activity'
 import { ExportPage } from '@/pages/export'
 import { CollectionsPage } from '@/pages/collections'
 import { HashtagsPage } from '@/pages/hashtags'
+import { EventsPage } from '@/pages/events'
 import { BottomNav } from '@/components/layout/bottom-nav'
 import { ErrorBoundary } from '@/components/error-boundary'
 import { useRealtime } from '@/hooks/use-realtime'
@@ -203,6 +204,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <HashtagsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/events"
+        element={
+          <ProtectedRoute>
+            <EventsPage />
           </ProtectedRoute>
         }
       />

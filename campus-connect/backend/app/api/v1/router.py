@@ -18,6 +18,7 @@ from .endpoints.activity import router as activity_router
 from .endpoints.export import router as export_router
 from .endpoints.collections import router as collections_router
 from .endpoints.social import router as social_router
+from .endpoints.engagement import router as engagement_router
 
 
 api_router = APIRouter()
@@ -41,3 +42,4 @@ api_router.include_router(activity_router, prefix="/activity", tags=["Activity L
 api_router.include_router(export_router, prefix="/export", tags=["Data Export"])
 api_router.include_router(collections_router, prefix="/features", tags=["Collections & Theme"])
 api_router.include_router(social_router, prefix="/social", tags=["Social Features"])
+api_router.include_router(engagement_router, prefix="/engagement", tags=["Engagement"])

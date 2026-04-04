@@ -721,3 +721,129 @@ CREATE INDEX IF NOT EXISTS idx_quick_reactions_post ON public.quick_reactions(po
 ALTER TABLE public.quick_reactions ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users can manage own reactions" ON public.quick_reactions FOR ALL USING (user_id = auth.uid());
+
+-- Post threading (reply chain to posts)
+ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS thread_id UUID REFERENCES public.posts(id) ON DELETE CASCADE;
+ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS reply_count INTEGER DEFAULT 0;
+ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS is_thread_reply BOOLEAN DEFAULT false;
+CREATE INDEX IF NOT EXISTS idx_posts_thread ON public.posts(thread_id);
+
+-- Campus events
+CREATE TABLE IF NOT EXISTS public.events (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    description TEXT,
+    location TEXT,
+    event_type TEXT DEFAULT 'general' CHECK (event_type IN ('general', 'academic', 'social', 'sports', 'career', 'cultural')),
+    start_date TIMESTAMP WITH TIME ZONE NOT NULL,
+    end_date TIMESTAMP WITH TIME ZONE,
+    is_recurring BOOLEAN DEFAULT false,
+    recurring_pattern TEXT,
+    max_attendees INTEGER,
+    cover_image_url TEXT,
+    is_public BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Event RSVPs
+CREATE TABLE IF NOT EXISTS public.event_rsvps (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    event_id UUID REFERENCES public.events(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    status TEXT DEFAULT 'going' CHECK (status IN ('going', 'maybe', 'not_going')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(event_id, user_id)
+);
+
+-- Event reminders
+CREATE TABLE IF NOT EXISTS public.event_reminders (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    event_id UUID REFERENCES public.events(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    remind_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    is_sent BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(event_id, user_id)
+);
+
+-- Event indexes
+CREATE INDEX IF NOT EXISTS idx_events_user ON public.events(user_id);
+CREATE INDEX IF NOT EXISTS idx_events_date ON public.events(start_date);
+CREATE INDEX IF NOT EXISTS idx_event_rsvps_event ON public.event_rsvps(event_id);
+CREATE INDEX IF NOT EXISTS idx_event_rsvps_user ON public.event_rsvps(user_id);
+CREATE INDEX IF NOT EXISTS idx_event_reminders_event ON public.event_reminders(event_id);
+
+-- Event policies
+ALTER TABLE public.events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.event_rsvps ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.event_reminders ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Events are viewable by everyone" ON public.events FOR SELECT USING (true);
+CREATE POLICY "Users can create events" ON public.events FOR INSERT WITH CHECK (user_id = auth.uid());
+CREATE POLICY "Users can update own events" ON public.events FOR UPDATE USING (user_id = auth.uid());
+CREATE POLICY "Users can delete own events" ON public.events FOR DELETE USING (user_id = auth.uid());
+
+CREATE POLICY "Users can manage own RSVPs" ON public.event_rsvps FOR ALL USING (user_id = auth.uid());
+CREATE POLICY "Users can manage own reminders" ON public.event_reminders FOR ALL USING (user_id = auth.uid());
+
+-- User reputation/karma system
+CREATE TABLE IF NOT EXISTS public.user_reputation (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE UNIQUE,
+    karma_score INTEGER DEFAULT 0,
+    total_posts_score INTEGER DEFAULT 0,
+    total_comments_score INTEGER DEFAULT 0,
+    total_likes_score INTEGER DEFAULT 0,
+    quality_posts INTEGER DEFAULT 0,
+    helpful_answers INTEGER DEFAULT 0,
+    community_help INTEGER DEFAULT 0,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Reputation indexes
+CREATE INDEX IF NOT EXISTS idx_reputation_user ON public.user_reputation(user_id);
+CREATE INDEX IF NOT EXISTS idx_reputation_score ON public.user_reputation(karma_score DESC);
+
+-- Reputation policies
+ALTER TABLE public.user_reputation ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Reputation is viewable by everyone" ON public.user_reputation FOR SELECT USING (true);
+CREATE POLICY "System can update reputation" ON public.user_reputation FOR UPDATE USING (true);
+
+-- Story highlights
+CREATE TABLE IF NOT EXISTS public.story_highlights (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    cover_story_id UUID REFERENCES public.stories(id) ON DELETE SET NULL,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Story highlight items
+CREATE TABLE IF NOT EXISTS public.story_highlight_items (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    highlight_id UUID REFERENCES public.story_highlights(id) ON DELETE CASCADE,
+    story_id UUID REFERENCES public.stories(id) ON DELETE CASCADE,
+    added_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(highlight_id, story_id)
+);
+
+-- Story highlights indexes
+CREATE INDEX IF NOT EXISTS idx_highlights_user ON public.story_highlights(user_id);
+CREATE INDEX IF NOT EXISTS idx_highlight_items_highlight ON public.story_highlight_items(highlight_id);
+
+-- Story highlights policies
+ALTER TABLE public.story_highlights ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.story_highlight_items ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view own highlights" ON public.story_highlights FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY "Users can create own highlights" ON public.story_highlights FOR INSERT WITH CHECK (user_id = auth.uid());
+CREATE POLICY "Users can update own highlights" ON public.story_highlights FOR UPDATE USING (user_id = auth.uid());
+CREATE POLICY "Users can delete own highlights" ON public.story_highlights FOR DELETE USING (user_id = auth.uid());
+CREATE POLICY "Users can manage own highlight items" ON public.story_highlight_items FOR ALL USING (
+    EXISTS (SELECT 1 FROM public.story_highlights WHERE id = highlight_id AND user_id = auth.uid())
+);
