@@ -2,7 +2,7 @@ from supabase import create_client
 from app.core.config import settings
 from app.schemas.notification_settings import NotificationSettings, NotificationSettingsResponse, PushSubscription
 
-supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
+supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
 
 async def get_notification_settings(user_id: str) -> NotificationSettingsResponse:
     result = supabase.table('notification_settings').select('*').eq('user_id', user_id).execute()
