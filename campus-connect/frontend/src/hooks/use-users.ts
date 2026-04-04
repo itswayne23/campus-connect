@@ -261,3 +261,61 @@ export function useReportUser() {
     },
   })
 }
+
+export function useBlockedUsers() {
+  return useQuery({
+    queryKey: ['blocked'],
+    queryFn: async () => {
+      const response = await api.get('/users/blocked')
+      return response.data
+    },
+  })
+}
+
+export function useMuteUser() {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: async (userId: string) => {
+      const response = await api.post(`/users/${userId}/mute`)
+      return { userId, ...response.data }
+    },
+    onSuccess: ({ userId }) => {
+      queryClient.invalidateQueries({ queryKey: ['user', userId] })
+      queryClient.invalidateQueries({ queryKey: ['feed'] })
+      toast.success('User muted')
+    },
+    onError: () => {
+      toast.error('Failed to mute user')
+    },
+  })
+}
+
+export function useUnmuteUser() {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: async (userId: string) => {
+      const response = await api.delete(`/users/${userId}/mute`)
+      return { userId, ...response.data }
+    },
+    onSuccess: ({ userId }) => {
+      queryClient.invalidateQueries({ queryKey: ['user', userId] })
+      queryClient.invalidateQueries({ queryKey: ['feed'] })
+      toast.success('User unmuted')
+    },
+    onError: () => {
+      toast.error('Failed to unmute user')
+    },
+  })
+}
+
+export function useMutedUsers() {
+  return useQuery({
+    queryKey: ['muted'],
+    queryFn: async () => {
+      const response = await api.get('/users/muted')
+      return response.data
+    },
+  })
+}

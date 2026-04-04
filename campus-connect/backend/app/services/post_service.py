@@ -1,8 +1,9 @@
 from typing import Optional, List
 import random
+import uuid
 from supabase import Client
 from app.core import get_supabase, get_service_client, moderation_service
-from app.schemas.post import PostCreate, PostUpdate, PostResponse, PostCategory, PostStatus
+from app.schemas.post import PostCreate, PostUpdate, PostResponse, PostCategory, PostStatus, Poll
 
 ANONYMOUS_NAMES = [
     ("Anonymous Fox", "🦊"),
@@ -44,6 +45,22 @@ class PostService:
             if moderation_result.get("flagged"):
                 status = PostStatus.PENDING.value
         
+        poll_data = None
+        poll_id = None
+        if post_data.poll:
+            poll_id = str(uuid.uuid4())
+            poll_data = {
+                "id": poll_id,
+                "question": post_data.poll.question,
+                "options": [
+                    {"id": str(uuid.uuid4()), "text": opt.text, "votes": 0}
+                    for opt in post_data.poll.options
+                ],
+                "expires_at": post_data.poll.expires_at,
+                "is_multiple_choice": post_data.poll.is_multiple_choice,
+                "total_votes": 0
+            }
+        
         post_payload = {
             "author_id": author_id,
             "content": post_data.content,
@@ -53,10 +70,14 @@ class PostService:
             "category": post_data.category.value if post_data.category else None,
             "status": status,
             "likes_count": 0,
-            "comments_count": 0
+            "comments_count": 0,
+            "poll_id": poll_id
         }
         
         response = service_client.table("posts").insert(post_payload).execute()
+        
+        if response.data and poll_data:
+            service_client.table("polls").insert(poll_data).execute()
         
         if response.data:
             return await self.get_post_by_id(response.data[0]["id"], author_id)
@@ -77,10 +98,21 @@ class PostService:
         following_ids = [f["following_id"] for f in following_response.data]
         following_ids.append(user_id)
         
+        blocked_response = self.supabase.table("blocks").select("blocked_id").eq("blocker_id", user_id).execute()
+        blocked_ids = [b["blocked_id"] for b in blocked_response.data]
+        
+        muted_response = self.supabase.table("mutes").select("muted_id").eq("muter_id", user_id).execute()
+        muted_ids = [m["muted_id"] for m in muted_response.data]
+        
+        excluded_ids = list(set(blocked_ids + muted_ids))
+        
         query = self.supabase.table("posts").select("*").eq("status", "approved")
         
         if following_ids:
             query = query.in_("author_id", following_ids)
+        
+        if excluded_ids:
+            query = query.not_in("author_id", excluded_ids)
         
         query = query.order("created_at", desc=True).limit(limit + 1)
         
@@ -133,7 +165,13 @@ class PostService:
         }
     
     async def get_explore_feed(self, current_user_id: str, cursor: Optional[str] = None, limit: int = 20) -> dict:
+        blocked_response = self.supabase.table("blocks").select("blocked_id").eq("blocker_id", current_user_id).execute()
+        blocked_ids = [b["blocked_id"] for b in blocked_response.data]
+        
         query = self.supabase.table("posts").select("*").eq("status", "approved").order("likes_count", desc=True).limit(limit + 1)
+        
+        if blocked_ids:
+            query = query.not_in("author_id", blocked_ids)
         
         if cursor:
             query = query.lt("likes_count", int(cursor))
@@ -214,6 +252,99 @@ class PostService:
         
         return {"success": True, "likes_count": new_count, "is_liked": True}
     
+    async def vote_poll(self, poll_id: str, option_id: str, user_id: str) -> dict:
+        service_client = get_service_client()
+        
+        existing_vote = self.supabase.table("poll_votes").select("*").eq("poll_id", poll_id).eq("user_id", user_id).execute()
+        
+        if existing_vote.data:
+            return {"success": False, "error": "Already voted", "poll": await self._get_poll_with_votes(poll_id, user_id)}
+        
+        poll_response = self.supabase.table("polls").select("*").eq("id", poll_id).execute()
+        if not poll_response.data:
+            return {"success": False, "error": "Poll not found", "poll": None}
+        
+        poll = poll_response.data[0]
+        option_ids = [opt["id"] for opt in poll.get("options", [])]
+        if option_id not in option_ids:
+            return {"success": False, "error": "Invalid option", "poll": await self._get_poll_with_votes(poll_id, user_id)}
+        
+        service_client.table("poll_votes").insert({
+            "poll_id": poll_id,
+            "option_id": option_id,
+            "user_id": user_id
+        }).execute()
+        
+        updated_options = []
+        for opt in poll.get("options", []):
+            if opt["id"] == option_id:
+                opt["votes"] = opt.get("votes", 0) + 1
+            updated_options.append(opt)
+        
+        service_client.table("polls").update({
+            "options": updated_options,
+            "total_votes": poll.get("total_votes", 0) + 1
+        }).eq("id", poll_id).execute()
+        
+        return {"success": True, "poll": await self._get_poll_with_votes(poll_id, user_id)}
+    
+    async def _get_poll_with_votes(self, poll_id: str, user_id: str) -> dict:
+        poll_response = self.supabase.table("polls").select("*").eq("id", poll_id).execute()
+        if not poll_response.data:
+            return None
+        
+        poll = poll_response.data[0]
+        
+        user_vote = self.supabase.table("poll_votes").select("option_id").eq("poll_id", poll_id).eq("user_id", user_id).execute()
+        voted_option_id = user_vote.data[0]["option_id"] if user_vote.data else None
+        
+        return {
+            "id": poll["id"],
+            "question": poll["question"],
+            "options": poll.get("options", []),
+            "expires_at": poll.get("expires_at"),
+            "is_multiple_choice": poll.get("is_multiple_choice", False),
+            "total_votes": poll.get("total_votes", 0),
+            "voted_option_id": voted_option_id
+        }
+    
+    async def repost(self, user_id: str, post_id: str, content: Optional[str] = None) -> dict:
+        service_client = get_service_client()
+        
+        existing = self.supabase.table("reposts").select("*").eq("user_id", user_id).eq("post_id", post_id).execute()
+        if existing.data:
+            return {"success": False, "error": "Already reposted"}
+        
+        repost_data = {
+            "user_id": user_id,
+            "post_id": post_id,
+            "content": content
+        }
+        
+        response = service_client.table("reposts").insert(repost_data).execute()
+        
+        if response.data:
+            self._create_notification(
+                post.get("author_id"),
+                "repost",
+                user_id,
+                post_id
+            )
+            return {"success": True, "repost": response.data[0]}
+        
+        return {"success": False, "error": "Failed to repost"}
+    
+    async def undo_repost(self, user_id: str, post_id: str) -> dict:
+        service_client = get_service_client()
+        
+        service_client.table("reposts").delete().eq("user_id", user_id).eq("post_id", post_id).execute()
+        
+        return {"success": True}
+    
+    async def get_repost_count(self, post_id: str) -> int:
+        response = self.supabase.table("reposts").select("id", count="exact").eq("post_id", post_id).execute()
+        return response.count or 0
+    
     async def get_comments(self, post_id: str, current_user_id: Optional[str] = None) -> List[dict]:
         response = self.supabase.table("comments").select("*").eq("post_id", post_id).is_("parent_id", None).order("created_at", desc=True).execute()
         
@@ -284,12 +415,27 @@ class PostService:
         
         is_liked = False
         is_bookmarked = False
+        poll = None
+        
         if current_user_id and post.get("author_id"):
             like_response = self.supabase.table("likes").select("*").eq("post_id", post["id"]).eq("user_id", current_user_id).execute()
             is_liked = len(like_response.data) > 0
             
             bookmark_response = self.supabase.table("bookmarks").select("*").eq("post_id", post["id"]).eq("user_id", current_user_id).execute()
             is_bookmarked = len(bookmark_response.data) > 0
+        
+        if post.get("poll_id"):
+            poll = await self._get_poll_with_votes(post["poll_id"], current_user_id or "")
+        
+        repost_count = 0
+        if post.get("id"):
+            repost_response = self.supabase.table("reposts").select("id", count="exact").eq("post_id", post["id"]).execute()
+            repost_count = repost_response.count or 0
+        
+        is_reposted = False
+        if current_user_id and post.get("id"):
+            repost_check = self.supabase.table("reposts").select("*").eq("user_id", current_user_id).eq("post_id", post["id"]).execute()
+            is_reposted = len(repost_check.data) > 0
         
         return {
             "id": post["id"],
@@ -300,6 +446,9 @@ class PostService:
             "is_anonymous": post.get("is_anonymous", False),
             "anonymous_name": post.get("anonymous_name"),
             "category": post.get("category"),
+            "poll": poll,
+            "repost_count": repost_count,
+            "is_reposted": is_reposted,
             "likes_count": post.get("likes_count", 0),
             "comments_count": post.get("comments_count", 0),
             "is_liked": is_liked,

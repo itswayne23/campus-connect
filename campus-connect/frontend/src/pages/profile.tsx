@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { useUser, useFollowUser, useUnfollowUser, useBlockUser, useReportUser } from '@/hooks/use-users'
+import { useUser, useFollowUser, useUnfollowUser, useBlockUser, useReportUser, useMuteUser, useUnmuteUser } from '@/hooks/use-users'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { PostCard } from '@/components/feed/post-card'
-import { Loader2, Calendar, MapPin, UserPlus, UserMinus, MessageCircle, Share2, MoreHorizontal, AlertTriangle, Ban } from 'lucide-react'
+import { Loader2, Calendar, MapPin, UserPlus, UserMinus, MessageCircle, Share2, MoreHorizontal, AlertTriangle, Ban, BellOff } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import type { Post } from '@/types'
 import {
@@ -28,6 +28,8 @@ export function ProfilePage() {
   const followUser = useFollowUser()
   const unfollowUser = useUnfollowUser()
   const blockUser = useBlockUser()
+  const muteUser = useMuteUser()
+  const unmuteUser = useUnmuteUser()
   const reportUser = useReportUser()
   
   const [activeTab, setActiveTab] = useState<'posts' | 'media'>('posts')
@@ -89,6 +91,15 @@ export function ProfilePage() {
 
   const handleBlock = () => {
     blockUser.mutate(user.id)
+    setShowMoreMenu(false)
+  }
+
+  const handleMute = () => {
+    if (user.is_muted) {
+      unmuteUser.mutate(user.id)
+    } else {
+      muteUser.mutate(user.id)
+    }
     setShowMoreMenu(false)
   }
 
@@ -172,6 +183,14 @@ export function ProfilePage() {
                         >
                           <Share2 className="h-4 w-4 mr-2" />
                           Share Profile
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          className="w-full justify-start px-4 py-2 text-sm text-yellow-600"
+                          onClick={handleMute}
+                        >
+                          <BellOff className="h-4 w-4 mr-2" />
+                          {user.is_muted ? 'Unmute User' : 'Mute User'}
                         </Button>
                         <Button
                           variant="ghost"

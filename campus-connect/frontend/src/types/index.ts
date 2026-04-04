@@ -10,6 +10,8 @@ export interface User {
   following_count: number
   posts_count: number
   is_following: boolean
+  is_blocked?: boolean
+  is_muted?: boolean
   is_own_profile?: boolean
   created_at: string
 }
@@ -27,12 +29,31 @@ export interface Post {
   is_anonymous: boolean
   anonymous_name: string | null
   category: string | null
+  poll: Poll | null
+  repost_count: number
+  is_reposted: boolean
   likes_count: number
   comments_count: number
   is_liked: boolean
   is_bookmarked: boolean
   created_at: string
   updated_at: string
+}
+
+export interface PollOption {
+  id: string
+  text: string
+  votes: number
+}
+
+export interface Poll {
+  id: string
+  question: string
+  options: PollOption[]
+  expires_at: string | null
+  is_multiple_choice: boolean
+  total_votes: number
+  voted_option_id: string | null
 }
 
 export interface Comment {
@@ -103,3 +124,29 @@ export interface PostFeedResponse {
 }
 
 export type PostCategory = 'complaint' | 'suggestion' | 'experience' | 'qna' | 'general'
+
+export interface Story {
+  id: string
+  user_id: string
+  user: {
+    id: string
+    username: string
+    avatar_url: string | null
+  } | null
+  media_url: string
+  media_type: 'image' | 'video'
+  caption: string | null
+  view_count: number
+  has_viewed: boolean
+  created_at: string
+  expires_at: string
+}
+
+export interface UserStories {
+  user: {
+    id: string
+    username: string
+    avatar_url: string | null
+  }
+  stories: Story[]
+}

@@ -1,7 +1,13 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { toast } from 'sonner'
-import type { Post, PostFeedResponse, Comment, PostCategory } from '@/types'
+import type { Post, PostFeedResponse, Comment, PostCategory, Poll, PollOption } from '@/types'
+
+interface PollData {
+  question: string
+  options: { text: string; votes: number }[]
+  is_multiple_choice: boolean
+}
 
 export function useFeed(cursor?: string) {
   return useInfiniteQuery({
@@ -66,7 +72,7 @@ export function useCreatePost() {
   const queryClient = useQueryClient()
   
   return useMutation({
-    mutationFn: async (data: { content: string; media_urls?: string[]; is_anonymous?: boolean; category?: string }) => {
+    mutationFn: async (data: { content: string; media_urls?: string[]; is_anonymous?: boolean; category?: string; poll?: PollData }) => {
       const response = await api.post<Post>('/posts', data)
       return response.data
     },
@@ -279,6 +285,64 @@ export function useRequestDeletePost() {
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.detail || 'Failed to submit delete request')
+    },
+  })
+}
+
+export function useRepostPost() {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: async (postId: string) => {
+      const response = await api.post<{ success: boolean }>(`/posts/${postId}/repost`)
+      return { postId, ...response.data }
+    },
+    onSuccess: ({ postId }) => {
+      queryClient.setQueriesData({ queryKey: ['feed'] }, (old: any) => {
+        if (!old) return old
+        return {
+          ...old,
+          pages: old.pages.map((page: any) => ({
+            ...page,
+            posts: page.posts.map((post: Post) =>
+              post.id === postId ? { ...post, is_reposted: true, repost_count: post.repost_count + 1 } : post
+            ),
+          })),
+        }
+      })
+      toast.success('Reposted!')
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || 'Failed to repost')
+    },
+  })
+}
+
+export function useRemoveRepost() {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: async (postId: string) => {
+      const response = await api.delete<{ success: boolean }>(`/posts/${postId}/repost`)
+      return { postId, ...response.data }
+    },
+    onSuccess: ({ postId }) => {
+      queryClient.setQueriesData({ queryKey: ['feed'] }, (old: any) => {
+        if (!old) return old
+        return {
+          ...old,
+          pages: old.pages.map((page: any) => ({
+            ...page,
+            posts: page.posts.map((post: Post) =>
+              post.id === postId ? { ...post, is_reposted: false, repost_count: Math.max(0, post.repost_count - 1) } : post
+            ),
+          })),
+        }
+      })
+      toast.success('Removed repost')
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || 'Failed to remove repost')
     },
   })
 }

@@ -283,3 +283,77 @@ async def export_profile_docx(
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         headers={"Content-Disposition": f"attachment; filename={profile.get('username', 'profile')}_profile.docx"}
     )
+
+@router.post("/{user_id}/block")
+async def block_user(
+    user_id: str,
+    current_user_id: str = Depends(get_current_user_id)
+):
+    result = await user_service.block_user(current_user_id, user_id)
+    
+    if not result.get("success"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=result.get("error", "Failed to block user")
+        )
+    
+    return result
+
+@router.delete("/{user_id}/block")
+async def unblock_user(
+    user_id: str,
+    current_user_id: str = Depends(get_current_user_id)
+):
+    result = await user_service.unblock_user(current_user_id, user_id)
+    
+    if not result.get("success"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=result.get("error", "Failed to unblock user")
+        )
+    
+    return result
+
+@router.get("/blocked", response_model=List[dict])
+async def get_blocked_users(
+    current_user_id: str = Depends(get_current_user_id)
+):
+    users = await user_service.get_blocked_users(current_user_id)
+    return users
+
+@router.post("/{user_id}/mute")
+async def mute_user(
+    user_id: str,
+    current_user_id: str = Depends(get_current_user_id)
+):
+    result = await user_service.mute_user(current_user_id, user_id)
+    
+    if not result.get("success"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=result.get("error", "Failed to mute user")
+        )
+    
+    return result
+
+@router.delete("/{user_id}/mute")
+async def unmute_user(
+    user_id: str,
+    current_user_id: str = Depends(get_current_user_id)
+):
+    result = await user_service.unmute_user(current_user_id, user_id)
+    
+    if not result.get("success"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=result.get("error", "Failed to unmute user")
+        )
+    
+    return result
+
+@router.get("/muted", response_model=List[dict])
+async def get_muted_users(
+    current_user_id: str = Depends(get_current_user_id)
+):
+    users = await user_service.get_muted_users(current_user_id)
+    return users

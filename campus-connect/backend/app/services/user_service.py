@@ -122,6 +122,73 @@ class UserService:
         response = self.supabase.table("follows").select("*").eq("follower_id", follower_id).eq("following_id", following_id).execute()
         return len(response.data) > 0
     
+    async def block_user(self, blocker_id: str, blocked_id: str) -> dict:
+        service_client = get_service_client()
+        
+        if blocker_id == blocked_id:
+            return {"success": False, "error": "Cannot block yourself"}
+        
+        existing = self.supabase.table("blocks").select("*").eq("blocker_id", blocker_id).eq("blocked_id", blocked_id).execute()
+        if existing.data:
+            return {"success": False, "error": "User already blocked"}
+        
+        service_client.table("blocks").insert({
+            "blocker_id": blocker_id,
+            "blocked_id": blocked_id
+        }).execute()
+        
+        self.supabase.table("follows").delete().eq("follower_id", blocker_id).eq("following_id", blocked_id).execute()
+        self.supabase.table("follows").delete().eq("follower_id", blocked_id).eq("following_id", blocker_id).execute()
+        
+        return {"success": True}
+    
+    async def unblock_user(self, blocker_id: str, blocked_id: str) -> dict:
+        service_client = get_service_client()
+        
+        service_client.table("blocks").delete().eq("blocker_id", blocker_id).eq("blocked_id", blocked_id).execute()
+        
+        return {"success": True}
+    
+    async def is_blocked(self, blocker_id: str, blocked_id: str) -> bool:
+        response = self.supabase.table("blocks").select("*").eq("blocker_id", blocker_id).eq("blocked_id", blocked_id).execute()
+        return len(response.data) > 0
+    
+    async def mute_user(self, muter_id: str, muted_id: str) -> dict:
+        service_client = get_service_client()
+        
+        if muter_id == muted_id:
+            return {"success": False, "error": "Cannot mute yourself"}
+        
+        existing = self.supabase.table("mutes").select("*").eq("muter_id", muter_id).eq("muted_id", muted_id).execute()
+        if existing.data:
+            return {"success": False, "error": "User already muted"}
+        
+        service_client.table("mutes").insert({
+            "muter_id": muter_id,
+            "muted_id": muted_id
+        }).execute()
+        
+        return {"success": True}
+    
+    async def unmute_user(self, muter_id: str, muted_id: str) -> dict:
+        service_client = get_service_client()
+        
+        service_client.table("mutes").delete().eq("muter_id", muter_id).eq("muted_id", muted_id).execute()
+        
+        return {"success": True}
+    
+    async def is_muted(self, muter_id: str, muted_id: str) -> bool:
+        response = self.supabase.table("mutes").select("*").eq("muter_id", muter_id).eq("muted_id", muted_id).execute()
+        return len(response.data) > 0
+    
+    async def get_blocked_users(self, user_id: str) -> List[dict]:
+        response = self.supabase.table("blocks").select("blocked_id, profiles(id, username, avatar_url)").eq("blocker_id", user_id).execute()
+        return response.data
+    
+    async def get_muted_users(self, user_id: str) -> List[dict]:
+        response = self.supabase.table("mutes").select("muted_id, profiles(id, username, avatar_url)").eq("muter_id", user_id).execute()
+        return response.data
+    
     async def _build_user_response(self, user_id: str, current_user_id: Optional[str] = None) -> dict:
         response = self.supabase.table("profiles").select("*").eq("id", user_id).execute()
         
@@ -135,6 +202,8 @@ class UserService:
         following_count = await self.get_following_count(user_id)
         posts_count = await self.get_user_posts_count(user_id)
         is_following = await self.is_following(current_user_id, user_id) if current_user_id and not is_own else False
+        is_blocked = await self.is_blocked(current_user_id, user_id) if current_user_id else False
+        is_muted = await self.is_muted(current_user_id, user_id) if current_user_id else False
         
         return {
             "id": user["id"],
@@ -147,6 +216,8 @@ class UserService:
             "following_count": following_count,
             "posts_count": posts_count,
             "is_following": is_following,
+            "is_blocked": is_blocked,
+            "is_muted": is_muted,
             "is_own_profile": is_own,
             "created_at": user.get("created_at")
         }

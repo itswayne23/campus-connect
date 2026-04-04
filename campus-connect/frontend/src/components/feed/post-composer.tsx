@@ -1,57 +1,159 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useAuthStore } from '@/store/auth-store'
 import { useCreatePost } from '@/hooks/use-posts'
+import { useDraft, useSaveDraft, useClearDraft } from '@/hooks/use-drafts'
 import { useMentionSuggestions, insertMention } from '@/components/feed/content-renderer'
 import { uploadMedia } from '@/lib/api'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Card } from '@/components/ui/card'
-import { Image, Video, Globe, Lock, Send, X, Loader2, AtSign } from 'lucide-react'
+import { Image, Video, Globe, Lock, Send, X, Loader2, BarChart3, Plus, Trash2, Save } from 'lucide-react'
 import { toast } from 'sonner'
-import type { User } from '@/types'
+import type { User, PollOption } from '@/types'
 
 interface MediaItem {
   url: string
   type: 'image' | 'video'
 }
 
+interface PollDraft {
+  question: string
+  options: PollOption[]
+}
+
 export function PostComposer() {
   const { user } = useAuthStore()
   const createPost = useCreatePost()
+  const { data: draft } = useDraft()
+  const saveDraft = useSaveDraft()
+  const clearDraft = useClearDraft()
   const [content, setContent] = useState('')
   const [isAnonymous, setIsAnonymous] = useState(false)
   const [media, setMedia] = useState<MediaItem[]>([])
   const [uploading, setUploading] = useState(false)
   const [showMentions, setShowMentions] = useState(false)
   const [cursorPosition, setCursorPosition] = useState(0)
+  const [showPoll, setShowPoll] = useState(false)
+  const [poll, setPoll] = useState<PollDraft>({ question: '', options: [{ id: '1', text: '', votes: 0 }, { id: '2', text: '', votes: 0 }] })
+  const [hasDraft, setHasDraft] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const videoInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const draftTimeoutRef = useRef<NodeJS.Timeout>()
 
   const { suggestions, isLoading: loadingMentions } = useMentionSuggestions(content, cursorPosition)
 
   useEffect(() => {
-    setShowMentions(suggestions.length > 0)
-  }, [suggestions])
+    if (draft && draft.content) {
+      setContent(draft.content)
+      setIsAnonymous(draft.is_anonymous)
+      if (draft.poll_data) {
+        setShowPoll(true)
+        setPoll({
+          question: draft.poll_data.question || '',
+          options: draft.poll_data.options || [{ id: '1', text: '', votes: 0 }, { id: '2', text: '', votes: 0 }]
+        })
+      }
+      setHasDraft(true)
+    }
+  }, [draft])
+
+  useEffect(() => {
+    if (draftTimeoutRef.current) {
+      clearTimeout(draftTimeoutRef.current)
+    }
+    
+    if (content || media.length > 0 || (showPoll && poll.question)) {
+      draftTimeoutRef.current = setTimeout(() => {
+        saveDraft.mutate({
+          content,
+          media_urls: media.map(m => m.url),
+          poll_data: showPoll && poll.question ? poll : undefined,
+          is_anonymous: isAnonymous
+        })
+      }, 2000)
+    }
+    
+    return () => {
+      if (draftTimeoutRef.current) {
+        clearTimeout(draftTimeoutRef.current)
+      }
+    }
+  }, [content, media, poll, showPoll, isAnonymous])
 
   const handleSubmit = async () => {
-    if (!content.trim() && media.length === 0) return
+    if (!content.trim() && media.length === 0 && !showPoll) return
+    
+    const validOptions = poll.options.filter(o => o.text.trim())
+    if (showPoll && (!poll.question.trim() || validOptions.length < 2)) {
+      toast.error('Poll must have a question and at least 2 options')
+      return
+    }
 
     const mediaUrls = media.map(m => m.url)
 
-    createPost.mutate({
+    const postPayload: any = {
       content: content.trim(),
       is_anonymous: isAnonymous,
       media_urls: mediaUrls.length > 0 ? mediaUrls : undefined,
-    }, {
+    }
+
+    if (showPoll && poll.question.trim()) {
+      postPayload.poll = {
+        question: poll.question.trim(),
+        options: validOptions.map((o, i) => ({ text: o.text.trim(), votes: 0 })),
+        is_multiple_choice: false
+      }
+    }
+
+    createPost.mutate(postPayload, {
       onSuccess: () => {
         setContent('')
         setIsAnonymous(false)
         setMedia([])
+        setShowPoll(false)
+        setPoll({ question: '', options: [{ id: '1', text: '', votes: 0 }, { id: '2', text: '', votes: 0 }] })
+        clearDraft.mutate()
+        setHasDraft(false)
         toast.success('Post created!')
       },
     })
+  }
+
+  const handleDiscardDraft = () => {
+    setContent('')
+    setIsAnonymous(false)
+    setMedia([])
+    setShowPoll(false)
+    setPoll({ question: '', options: [{ id: '1', text: '', votes: 0 }, { id: '2', text: '', votes: 0 }] })
+    clearDraft.mutate()
+    setHasDraft(false)
+  }
+
+  const addPollOption = () => {
+    if (poll.options.length < 6) {
+      setPoll(prev => ({
+        ...prev,
+        options: [...prev.options, { id: String(prev.options.length + 1), text: '', votes: 0 }]
+      }))
+    }
+  }
+
+  const removePollOption = (id: string) => {
+    if (poll.options.length > 2) {
+      setPoll(prev => ({
+        ...prev,
+        options: prev.options.filter(o => o.id !== id)
+      }))
+    }
+  }
+
+  const updatePollOption = (id: string, text: string) => {
+    setPoll(prev => ({
+      ...prev,
+      options: prev.options.map(o => o.id === id ? { ...o, text } : o)
+    }))
   }
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'video') => {
@@ -147,6 +249,17 @@ export function PostComposer() {
         </Avatar>
 
         <div className="flex-1">
+          {hasDraft && (
+            <div className="flex items-center justify-between mb-2 text-xs text-muted-foreground bg-blue-50 dark:bg-blue-950/30 px-3 py-1.5 rounded-md">
+              <div className="flex items-center gap-1.5">
+                <Save className="h-3 w-3" />
+                <span>Draft restored</span>
+              </div>
+              <Button variant="ghost" size="sm" className="h-5 text-xs" onClick={handleDiscardDraft}>
+                Discard
+              </Button>
+            </div>
+          )}
           <div className="relative">
             <Textarea
               ref={textareaRef}
@@ -213,6 +326,54 @@ export function PostComposer() {
             </div>
           )}
 
+          {showPoll && (
+            <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4" />
+                  Add Poll
+                </span>
+                <Button variant="ghost" size="sm" onClick={() => setShowPoll(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <input
+                type="text"
+                placeholder="Ask a question..."
+                value={poll.question}
+                onChange={(e) => setPoll(prev => ({ ...prev, question: e.target.value }))}
+                className="w-full px-3 py-2 text-sm rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <div className="mt-2 space-y-2">
+                {poll.options.map((option, index) => (
+                  <div key={option.id} className="flex items-center gap-2">
+                    <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+                      <span className="text-sm text-gray-400">{String.fromCharCode(65 + index)}.</span>
+                      <input
+                        type="text"
+                        placeholder={`Option ${String.fromCharCode(65 + index)}`}
+                        value={option.text}
+                        onChange={(e) => updatePollOption(option.id, e.target.value)}
+                        className="flex-1 bg-transparent border-none focus:outline-none text-sm"
+                      />
+                    </div>
+                    {poll.options.length > 2 && (
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => removePollOption(option.id)}>
+                        <X className="h-4 w-4 text-red-500" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {poll.options.length < 6 && (
+                <Button variant="ghost" size="sm" onClick={addPollOption} className="mt-2 text-blue-500">
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Option
+                </Button>
+              )}
+            </div>
+          )}
+
           <div className="flex items-center justify-between mt-4 pt-4 border-t">
             <div className="flex items-center gap-1">
               <input
@@ -248,6 +409,15 @@ export function PostComposer() {
                 disabled={uploading}
               >
                 <Video className="h-5 w-5" />
+              </Button>
+              
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className={`h-9 w-9 rounded-full ${showPoll ? 'bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-300' : 'text-green-500 hover:bg-green-50 dark:hover:bg-green-950'}`}
+                onClick={() => setShowPoll(!showPoll)}
+              >
+                <BarChart3 className="h-5 w-5" />
               </Button>
               
               <span className="text-xs text-gray-400 px-2">

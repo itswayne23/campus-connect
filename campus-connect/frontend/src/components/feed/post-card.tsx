@@ -3,8 +3,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { useAuthStore } from '@/store/auth-store'
-import { useLikePost, useDeletePost, useComments, useCreateComment, useBookmarkPost, useRemoveBookmark, useUpdatePost, useRequestDeletePost } from '@/hooks/use-posts'
-import { Heart, MessageCircle, Share2, MoreHorizontal, Trash2, Send, Bookmark, Pencil, AlertTriangle } from 'lucide-react'
+import { useLikePost, useDeletePost, useComments, useCreateComment, useBookmarkPost, useRemoveBookmark, useUpdatePost, useRequestDeletePost, useRepostPost, useRemoveRepost } from '@/hooks/use-posts'
+import { Heart, MessageCircle, Share2, MoreHorizontal, Trash2, Send, Bookmark, Pencil, AlertTriangle, Repeat2 } from 'lucide-react'
 import { formatDate, canEditPost, canDeletePost } from '@/lib/utils'
 import { useState } from 'react'
 import {
@@ -67,6 +67,8 @@ export function PostCard({ post }: PostCardProps) {
   
   const { data: comments } = useComments(showComments ? post.id : '')
   const createComment = useCreateComment()
+  const repostPost = useRepostPost()
+  const removeRepost = useRemoveRepost()
   
   const isOwner = user?.id === post.author_id
   const isAnonymous = post.is_anonymous
@@ -114,6 +116,30 @@ export function PostCard({ post }: PostCardProps) {
         },
       }
     )
+  }
+
+  const handlePollVote = async (optionId: string) => {
+    if (post.poll?.voted_option_id) return
+    
+    try {
+      const response = await fetch(`/api/v1/posts/${post.id}/poll/vote`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ option_id: optionId }),
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        if (data.poll) {
+          post.poll = data.poll
+          toast.success('Vote recorded!')
+        }
+      }
+    } catch (error) {
+      console.error('Vote failed:', error)
+    }
   }
 
   return (
@@ -259,6 +285,51 @@ export function PostCard({ post }: PostCardProps) {
           </div>
         )}
 
+        {post.poll && (
+          <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+            <p className="font-medium mb-2">{post.poll.question}</p>
+            <div className="space-y-2">
+              {post.poll.options.map((option, index) => {
+                const percentage = post.poll!.total_votes > 0 
+                  ? Math.round((option.votes / post.poll!.total_votes) * 100) 
+                  : 0
+                const hasVoted = post.poll!.voted_option_id === option.id
+                
+                return (
+                  <button
+                    key={option.id}
+                    disabled={!!post.poll!.voted_option_id}
+                    className={`w-full relative overflow-hidden rounded-md border dark:border-gray-600 px-3 py-2 text-left transition-all ${
+                      hasVoted 
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' 
+                        : 'border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800'
+                    }`}
+                    onClick={() => handlePollVote(option.id)}
+                  >
+                    <div 
+                      className={`absolute inset-y-0 left-0 ${hasVoted ? 'bg-blue-200 dark:bg-blue-800' : 'bg-gray-200 dark:bg-gray-700'}`}
+                      style={{ width: `${percentage}%`, transition: 'width 0.3s ease' }}
+                    />
+                    <div className="relative flex items-center justify-between">
+                      <span className="text-sm">
+                        {String.fromCharCode(65 + index)}. {option.text}
+                      </span>
+                      <span className="text-sm font-medium">
+                        {percentage}%
+                        {hasVoted && <span className="ml-1 text-blue-500">✓</span>}
+                      </span>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              {post.poll!.total_votes} vote{post.poll!.total_votes !== 1 ? 's' : ''}
+              {post.poll!.voted_option_id && ' • You voted'}
+            </p>
+          </div>
+        )}
+
         <div className="flex items-center justify-between mt-4 pt-3 border-t dark:border-gray-800">
           <div className="flex items-center gap-1">
             <Button
@@ -288,6 +359,20 @@ export function PostCard({ post }: PostCardProps) {
             <Button variant="ghost" size="sm" className="gap-2 rounded-full hover:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 transition-all" onClick={handleShare}>
               <Share2 className="h-5 w-5" />
               <span className="text-sm font-medium">Share</span>
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`gap-2 rounded-full transition-all ${
+                post.is_reposted 
+                  ? 'text-green-500 hover:text-green-600' 
+                  : 'hover:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20'
+              }`}
+              onClick={() => post.is_reposted ? removeRepost.mutate(post.id) : repostPost.mutate(post.id)}
+            >
+              <Repeat2 className={`h-5 w-5 ${post.is_reposted ? 'fill-current' : ''}`} />
+              <span className="text-sm font-medium">{post.repost_count > 0 ? post.repost_count : 'Repost'}</span>
             </Button>
 
             <Button

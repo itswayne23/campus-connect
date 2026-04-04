@@ -1,6 +1,7 @@
 import { useFeed } from '@/hooks/use-posts'
 import { PostComposer } from '@/components/feed/post-composer'
 import { PostCard } from '@/components/feed/post-card'
+import { StoriesBar } from '@/components/stories/stories-bar'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Loader2, Sparkles } from 'lucide-react'
@@ -12,6 +13,10 @@ export function HomePage() {
 
   return (
     <div className="max-w-xl mx-auto space-y-6">
+      <Card className="p-4 shadow-md border-0">
+        <StoriesBar />
+      </Card>
+
       <Card className="overflow-hidden shadow-lg border-0">
         <div className="p-4 border-b bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30">
           <div className="flex items-center gap-2">

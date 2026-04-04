@@ -28,12 +28,22 @@ class UserResponse(BaseModel):
     posts_count: int = 0
     created_at: Optional[datetime] = None
     is_following: bool = False
+    is_blocked: bool = False
+    is_muted: bool = False
 
     class Config:
         from_attributes = True
 
 class UserProfileResponse(UserResponse):
     is_own_profile: bool = False
+
+class BlockResponse(BaseModel):
+    success: bool
+    error: Optional[str] = None
+
+class MuteResponse(BaseModel):
+    success: bool
+    error: Optional[str] = None
 
 class TokenResponse(BaseModel):
     access_token: str

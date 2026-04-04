@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, status, Depends, Query, UploadFile, File
 from typing import List, Optional
 from app.schemas.post import (
-    PostCreate, PostUpdate, PostResponse, PostFeedResponse, LikeResponse, PostStatus
+    PostCreate, PostUpdate, PostResponse, PostFeedResponse, LikeResponse, PostStatus, PollVote, PollVoteResponse, Poll
 )
 from app.services.post_service import post_service
 from app.api.deps import get_current_user_id, get_optional_user_id
@@ -146,6 +146,70 @@ async def remove_bookmark(
     service.table("bookmarks").delete().eq("user_id", current_user_id).eq("post_id", post_id).execute()
     
     return {"is_bookmarked": False}
+
+@router.post("/{post_id}/repost")
+async def create_repost(
+    post_id: str,
+    current_user_id: str = Depends(get_current_user_id)
+):
+    from app.schemas.post import RepostCreate
+    repost_data = RepostCreate()
+    
+    result = await post_service.repost(current_user_id, post_id, repost_data.content)
+    
+    if not result.get("success"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=result.get("error", "Failed to repost")
+        )
+    
+    return result
+
+@router.delete("/{post_id}/repost")
+async def remove_repost(
+    post_id: str,
+    current_user_id: str = Depends(get_current_user_id)
+):
+    result = await post_service.undo_repost(current_user_id, post_id)
+    
+    if not result.get("success"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=result.get("error", "Failed to remove repost")
+        )
+    
+    return result
+
+@router.get("/{post_id}/repost/count")
+async def get_repost_count(
+    post_id: str
+):
+    count = await post_service.get_repost_count(post_id)
+    return {"repost_count": count}
+
+@router.post("/{post_id}/poll/vote", response_model=PollVoteResponse)
+async def vote_poll(
+    post_id: str,
+    vote_data: PollVote,
+    current_user_id: str = Depends(get_current_user_id)
+):
+    post = await post_service.get_post_by_id(post_id, current_user_id)
+    
+    if not post or not post.get("poll"):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Poll not found"
+        )
+    
+    result = await post_service.vote_poll(post["poll"]["id"], vote_data.option_id, current_user_id)
+    
+    if not result.get("success"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=result.get("error", "Vote failed")
+        )
+    
+    return result
 
 @router.get("/bookmarks", response_model=PostFeedResponse)
 async def get_bookmarked_posts(

@@ -31,11 +31,43 @@ CREATE TABLE IF NOT EXISTS public.posts (
     is_anonymous BOOLEAN DEFAULT false,
     anonymous_name TEXT,
     category TEXT,
+    poll_id UUID,
     status TEXT DEFAULT 'approved' CHECK (status IN ('pending', 'approved', 'rejected')),
     likes_count INTEGER DEFAULT 0,
     comments_count INTEGER DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE
+);
+
+-- Polls table
+CREATE TABLE IF NOT EXISTS public.polls (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    question TEXT NOT NULL,
+    options JSONB NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE,
+    is_multiple_choice BOOLEAN DEFAULT false,
+    total_votes INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Poll votes table
+CREATE TABLE IF NOT EXISTS public.poll_votes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    poll_id UUID REFERENCES public.polls(id) ON DELETE CASCADE,
+    option_id TEXT NOT NULL,
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(poll_id, user_id)
+);
+
+-- Reposts table
+CREATE TABLE IF NOT EXISTS public.reposts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    post_id UUID REFERENCES public.posts(id) ON DELETE CASCADE,
+    content TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(user_id, post_id)
 );
 
 -- Comments table
@@ -98,6 +130,50 @@ CREATE TABLE IF NOT EXISTS public.blocks (
     UNIQUE(blocker_id, blocked_id)
 );
 
+-- Mutes table
+CREATE TABLE IF NOT EXISTS public.mutes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    muter_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    muted_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(muter_id, muted_id)
+);
+
+-- Stories table
+CREATE TABLE IF NOT EXISTS public.stories (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    media_url TEXT NOT NULL,
+    media_type TEXT DEFAULT 'image' CHECK (media_type IN ('image', 'video')),
+    caption TEXT,
+    view_count INTEGER DEFAULT 0,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    expires_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() + INTERVAL '24 hours')
+);
+
+-- Story views table
+CREATE TABLE IF NOT EXISTS public.story_views (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    story_id UUID REFERENCES public.stories(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    viewed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(story_id, user_id)
+);
+
+-- Drafts table
+CREATE TABLE IF NOT EXISTS public.drafts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    content TEXT,
+    media_urls JSONB DEFAULT '[]',
+    category TEXT,
+    poll_data JSONB,
+    is_anonymous BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Reports table
 CREATE TABLE IF NOT EXISTS public.reports (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -122,6 +198,13 @@ CREATE INDEX IF NOT EXISTS idx_posts_author_id ON public.posts(author_id);
 CREATE INDEX IF NOT EXISTS idx_posts_status ON public.posts(status);
 CREATE INDEX IF NOT EXISTS idx_posts_created_at ON public.posts(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_posts_is_anonymous ON public.posts(is_anonymous);
+CREATE INDEX IF NOT EXISTS idx_posts_poll_id ON public.posts(poll_id);
+CREATE INDEX IF NOT EXISTS idx_poll_votes_poll ON public.poll_votes(poll_id);
+CREATE INDEX IF NOT EXISTS idx_reposts_post ON public.reposts(post_id);
+CREATE INDEX IF NOT EXISTS idx_reposts_user ON public.reposts(user_id);
+CREATE INDEX IF NOT EXISTS idx_stories_user ON public.stories(user_id);
+CREATE INDEX IF NOT EXISTS idx_stories_expires ON public.stories(expires_at);
+CREATE INDEX IF NOT EXISTS idx_story_views_story ON public.story_views(story_id);
 CREATE INDEX IF NOT EXISTS idx_comments_post_id ON public.comments(post_id);
 CREATE INDEX IF NOT EXISTS idx_likes_post_id ON public.likes(post_id);
 CREATE INDEX IF NOT EXISTS idx_messages_sender ON public.messages(sender_id);
