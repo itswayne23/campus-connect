@@ -563,3 +563,91 @@ CREATE INDEX IF NOT EXISTS idx_comments_author ON public.comments(author_id);
 
 -- Composite index for feed queries
 CREATE INDEX IF NOT EXISTS idx_posts_feed ON public.posts(status, created_at DESC) WHERE status = 'approved';
+
+-- Post collections/folders
+CREATE TABLE IF NOT EXISTS public.collections (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    description TEXT,
+    is_public BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Collection posts junction table
+CREATE TABLE IF NOT EXISTS public.collection_posts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    collection_id UUID REFERENCES public.collections(id) ON DELETE CASCADE,
+    post_id UUID REFERENCES public.posts(id) ON DELETE CASCADE,
+    added_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(collection_id, post_id)
+);
+
+-- Collection indexes
+CREATE INDEX IF NOT EXISTS idx_collections_user ON public.collections(user_id);
+CREATE INDEX IF NOT EXISTS idx_collection_posts_collection ON public.collection_posts(collection_id);
+CREATE INDEX IF NOT EXISTS idx_collection_posts_post ON public.collection_posts(post_id);
+
+-- Collection policies
+ALTER TABLE public.collections ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.collection_posts ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view own collections" ON public.collections FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY "Users can create own collections" ON public.collections FOR INSERT WITH CHECK (user_id = auth.uid());
+CREATE POLICY "Users can update own collections" ON public.collections FOR UPDATE USING (user_id = auth.uid());
+CREATE POLICY "Users can delete own collections" ON public.collections FOR DELETE USING (user_id = auth.uid());
+
+CREATE POLICY "Users can manage own collection posts" ON public.collection_posts FOR ALL USING (
+    EXISTS (SELECT 1 FROM public.collections WHERE id = collection_id AND user_id = auth.uid())
+);
+
+-- Theme preferences
+CREATE TABLE IF NOT EXISTS public.theme_preferences (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE UNIQUE,
+    theme TEXT DEFAULT 'system' CHECK (theme IN ('light', 'dark', 'system')),
+    accent_color TEXT DEFAULT '#3b82f6',
+    custom_dark_bg TEXT,
+    custom_light_bg TEXT,
+    font_size TEXT DEFAULT 'medium' CHECK (font_size IN ('small', 'medium', 'large')),
+    reduced_motion BOOLEAN DEFAULT false,
+    high_contrast BOOLEAN DEFAULT false,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Theme preferences policies
+ALTER TABLE public.theme_preferences ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view own theme" ON public.theme_preferences FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY "Users can update own theme" ON public.theme_preferences FOR UPDATE USING (user_id = auth.uid());
+CREATE POLICY "Users can create own theme" ON public.theme_preferences FOR INSERT WITH CHECK (user_id = auth.uid());
+
+-- Enhance reposts table for quote reposts
+ALTER TABLE public.reposts ADD COLUMN IF NOT EXISTS quote_text TEXT;
+ALTER TABLE public.reposts ADD COLUMN IF NOT EXISTS quote_media_urls JSONB DEFAULT '[]';
+
+-- Scheduled stories (stories that post later)
+CREATE TABLE IF NOT EXISTS public.scheduled_stories (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    media_url TEXT NOT NULL,
+    media_type TEXT DEFAULT 'image' CHECK (media_type IN ('image', 'video')),
+    caption TEXT,
+    scheduled_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'published', 'cancelled')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Scheduled stories indexes
+CREATE INDEX IF NOT EXISTS idx_scheduled_stories_user ON public.scheduled_stories(user_id);
+CREATE INDEX IF NOT EXISTS idx_scheduled_stories_scheduled ON public.scheduled_stories(scheduled_at);
+CREATE INDEX IF NOT EXISTS idx_scheduled_stories_status ON public.scheduled_stories(status);
+
+-- Scheduled stories policies
+ALTER TABLE public.scheduled_stories ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view own scheduled stories" ON public.scheduled_stories FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY "Users can create own scheduled stories" ON public.scheduled_stories FOR INSERT WITH CHECK (user_id = auth.uid());
+CREATE POLICY "Users can update own scheduled stories" ON public.scheduled_stories FOR UPDATE USING (user_id = auth.uid());
+CREATE POLICY "Users can delete own scheduled stories" ON public.scheduled_stories FOR DELETE USING (user_id = auth.uid());

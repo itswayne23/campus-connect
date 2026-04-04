@@ -10,8 +10,9 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { useUpdateProfile, useUploadAvatar, useDeleteAvatar } from '@/hooks/use-users'
 import { useNotificationSettings, useUpdateNotificationSettings, useSubscribePush, useUnsubscribePush } from '@/hooks/use-notifications'
+import { useTheme, useUpdateTheme } from '@/hooks/use-collections'
 import { toast } from 'sonner'
-import { Camera, Upload, Trash2, Loader2, Bell, BellOff } from 'lucide-react'
+import { Camera, Upload, Trash2, Loader2, Bell, BellOff, Sun, Moon, Monitor, Palette } from 'lucide-react'
 
 export function SettingsPage() {
   const { user } = useAuthStore()
@@ -23,6 +24,8 @@ export function SettingsPage() {
   const updateNotifications = useUpdateNotificationSettings()
   const subscribePush = useSubscribePush()
   const unsubscribePush = useUnsubscribePush()
+  const { data: theme } = useTheme()
+  const updateTheme = useUpdateTheme()
 
   const [username, setUsername] = useState(user?.username || '')
   const [bio, setBio] = useState(user?.bio || '')
@@ -473,10 +476,109 @@ export function SettingsPage() {
           <CardTitle>Appearance</CardTitle>
           <CardDescription>Customize the look of the app</CardDescription>
         </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Dark mode is currently enabled by default. Additional theme options coming soon.
-          </p>
+        <CardContent className="space-y-6">
+          <div>
+            <Label className="mb-3 block">Theme</Label>
+            <div className="flex gap-2">
+              <Button
+                variant={theme?.theme === 'light' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => updateTheme.mutate({ theme: 'light' })}
+              >
+                <Sun className="h-4 w-4 mr-2" />
+                Light
+              </Button>
+              <Button
+                variant={theme?.theme === 'dark' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => updateTheme.mutate({ theme: 'dark' })}
+              >
+                <Moon className="h-4 w-4 mr-2" />
+                Dark
+              </Button>
+              <Button
+                variant={theme?.theme === 'system' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => updateTheme.mutate({ theme: 'system' })}
+              >
+                <Monitor className="h-4 w-4 mr-2" />
+                System
+              </Button>
+            </div>
+          </div>
+
+          <div>
+            <Label className="mb-3 block">Accent Color</Label>
+            <div className="flex gap-3">
+              {[
+                { color: '#3b82f6', name: 'Blue' },
+                { color: '#8b5cf6', name: 'Purple' },
+                { color: '#ec4899', name: 'Pink' },
+                { color: '#10b981', name: 'Green' },
+                { color: '#f59e0b', name: 'Orange' },
+                { color: '#ef4444', name: 'Red' },
+              ].map((c) => (
+                <button
+                  key={c.color}
+                  onClick={() => updateTheme.mutate({ accent_color: c.color })}
+                  className={`w-8 h-8 rounded-full border-2 ${
+                    theme?.accent_color === c.color ? 'border-primary scale-110' : 'border-transparent'
+                  }`}
+                  style={{ backgroundColor: c.color }}
+                  title={c.name}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <Label className="mb-3 block">Font Size</Label>
+            <div className="flex gap-2">
+              <Button
+                variant={theme?.font_size === 'small' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => updateTheme.mutate({ font_size: 'small' })}
+              >
+                Small
+              </Button>
+              <Button
+                variant={theme?.font_size === 'medium' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => updateTheme.mutate({ font_size: 'medium' })}
+              >
+                Medium
+              </Button>
+              <Button
+                variant={theme?.font_size === 'large' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => updateTheme.mutate({ font_size: 'large' })}
+              >
+                Large
+              </Button>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Palette className="h-4 w-4" />
+                <Label htmlFor="reduced-motion">Reduced Motion</Label>
+              </div>
+              <Switch
+                id="reduced-motion"
+                checked={theme?.reduced_motion ?? false}
+                onCheckedChange={(checked) => updateTheme.mutate({ reduced_motion: checked })}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="high-contrast">High Contrast</Label>
+              <Switch
+                id="high-contrast"
+                checked={theme?.high_contrast ?? false}
+                onCheckedChange={(checked) => updateTheme.mutate({ high_contrast: checked })}
+              />
+            </div>
+          </div>
         </CardContent>
       </Card>
 

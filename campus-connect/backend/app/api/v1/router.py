@@ -16,6 +16,7 @@ from .endpoints.message_enhancements import router as message_enhancements_route
 from .endpoints.admin_management import router as admin_management_router
 from .endpoints.activity import router as activity_router
 from .endpoints.export import router as export_router
+from .endpoints.collections import router as collections_router
 
 
 api_router = APIRouter()
@@ -37,3 +38,4 @@ api_router.include_router(analytics_router, prefix="/analytics", tags=["Analytic
 api_router.include_router(admin_management_router, prefix="/admin", tags=["Admin Management"])
 api_router.include_router(activity_router, prefix="/activity", tags=["Activity Log"])
 api_router.include_router(export_router, prefix="/export", tags=["Data Export"])
+api_router.include_router(collections_router, prefix="/features", tags=["Collections & Theme"])
