@@ -193,6 +193,147 @@ class PostService:
             "next_cursor": next_cursor
         }
     
+    async def search_posts(
+        self,
+        user_id: str,
+        q: Optional[str] = None,
+        category: Optional[str] = None,
+        hashtag: Optional[str] = None,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
+        sort_by: str = "recent",
+        cursor: Optional[str] = None,
+        limit: int = 20
+    ) -> dict:
+        blocked_response = self.supabase.table("blocks").select("blocked_id").eq("blocker_id", user_id).execute()
+        blocked_ids = [b["blocked_id"] for b in blocked_response.data]
+        
+        query = self.supabase.table("posts").select("*").eq("status", "approved")
+        
+        if blocked_ids:
+            query = query.not_in("author_id", blocked_ids)
+        
+        if q:
+            query = query.ilike("content", f"%{q}%")
+        
+        if category:
+            query = query.eq("category", category)
+        
+        if hashtag:
+            query = query.ilike("content", f"%#{hashtag}%")
+        
+        if date_from:
+            query = query.gte("created_at", date_from)
+        
+        if date_to:
+            query = query.lte("created_at", date_to)
+        
+        if sort_by == "popular":
+            query = query.order("likes_count", desc=True)
+        elif sort_by == "trending":
+            query = query.order("comments_count", desc=True)
+        else:
+            query = query.order("created_at", desc=True)
+        
+        query = query.limit(limit + 1)
+        
+        if cursor:
+            if sort_by == "recent":
+                query = query.lt("created_at", cursor)
+            else:
+                query = query.lt("likes_count" if sort_by == "popular" else "comments_count", int(cursor))
+        
+        response = query.execute()
+        
+        has_more = len(response.data) > limit
+        posts_data = response.data[:limit]
+        
+        posts = []
+        for post in posts_data:
+            posts.append(await self._build_post_response(post, user_id))
+        
+        next_cursor = None
+        if posts_data and has_more:
+            if sort_by == "recent":
+                next_cursor = posts_data[-1]["created_at"]
+            else:
+                next_cursor = str(posts_data[-1]["likes_count" if sort_by == "popular" else "comments_count"])
+        
+        return {
+            "posts": posts,
+            "has_more": has_more,
+            "next_cursor": next_cursor
+        }
+    
+    async def get_for_you_feed(self, user_id: str, cursor: Optional[str] = None, limit: int = 20) -> dict:
+        blocked_response = self.supabase.table("blocks").select("blocked_id").eq("blocker_id", user_id).execute()
+        blocked_ids = [b["blocked_id"] for b in blocked_response.data]
+        blocked_ids.append(user_id)
+        
+        liked_categories_response = self.supabase.table("likes").select("posts(category)").execute()
+        category_counts = {}
+        for like in liked_categories_response.data:
+            if like.get("posts") and like["posts"].get("category"):
+                cat = like["posts"]["category"]
+                category_counts[cat] = category_counts.get(cat, 0) + 1
+        
+        top_categories = sorted(category_counts.items(), key=lambda x: x[1], reverse=True)[:3]
+        preferred_categories = [c[0] for c in top_categories] if top_categories else []
+        
+        following_response = self.supabase.table("follows").select("following_id").eq("follower_id", user_id).execute()
+        following_ids = [f["following_id"] for f in following_response.data]
+        
+        query = self.supabase.table("posts").select("*").eq("status", "approved")
+        
+        if blocked_ids:
+            query = query.not_in("author_id", blocked_ids)
+        
+        query = query.order("created_at", desc=True).limit(limit * 3)
+        
+        response = query.execute()
+        
+        scored_posts = []
+        for post in response.data:
+            score = 0
+            
+            if post.get("author_id") in following_ids:
+                score += 10
+            
+            if preferred_categories and post.get("category") in preferred_categories:
+                score += 5
+            
+            engagement = post.get("likes_count", 0) + post.get("comments_count", 0) * 2
+            score += min(engagement / 10, 20)
+            
+            hours_old = (datetime.utcnow() - datetime.fromisoformat(post.get("created_at").replace("Z", "+00:00"))).total_seconds() / 3600
+            if hours_old < 24:
+                score += 5
+            elif hours_old < 48:
+                score += 2
+            
+            scored_posts.append((post, score))
+        
+        scored_posts.sort(key=lambda x: x[1], reverse=True)
+        
+        if cursor:
+            cursor_time = datetime.fromisoformat(cursor.replace("Z", "+00:00"))
+            scored_posts = [(p, s) for p, s in scored_posts if datetime.fromisoformat(p.get("created_at").replace("Z", "+00:00")) < cursor_time]
+        
+        posts_data = scored_posts[:limit]
+        has_more = len(scored_posts) > limit
+        
+        posts = []
+        for post, _ in posts_data:
+            posts.append(await self._build_post_response(post, user_id))
+        
+        next_cursor = posts_data[-1][0]["created_at"] if posts_data and has_more else None
+        
+        return {
+            "posts": posts,
+            "has_more": has_more,
+            "next_cursor": next_cursor
+        }
+    
     async def get_user_posts(self, user_id: str, current_user_id: str) -> List[dict]:
         response = self.supabase.table("posts").select("*").eq("author_id", user_id).eq("status", "approved").order("created_at", desc=True).execute()
         

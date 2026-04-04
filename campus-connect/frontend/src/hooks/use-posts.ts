@@ -41,6 +41,50 @@ export function useExploreFeed() {
   })
 }
 
+interface SearchParams {
+  q?: string
+  category?: string
+  hashtag?: string
+  sortBy?: 'recent' | 'popular' | 'trending'
+}
+
+export function useSearchPosts(params: SearchParams) {
+  return useInfiniteQuery({
+    queryKey: ['search', params],
+    queryFn: async ({ pageParam }) => {
+      const searchParams = new URLSearchParams()
+      if (params.q) searchParams.set('q', params.q)
+      if (params.category) searchParams.set('category', params.category)
+      if (params.hashtag) searchParams.set('hashtag', params.hashtag)
+      if (params.sortBy) searchParams.set('sort_by', params.sortBy)
+      if (pageParam) searchParams.set('cursor', pageParam)
+      searchParams.set('limit', '10')
+      
+      const response = await api.get<PostFeedResponse>(`/posts/search?${searchParams}`)
+      return response.data
+    },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
+    enabled: !!(params.q || params.category || params.hashtag),
+  })
+}
+
+export function useForYouFeed() {
+  return useInfiniteQuery({
+    queryKey: ['forYou'],
+    queryFn: async ({ pageParam }) => {
+      const params = new URLSearchParams()
+      if (pageParam) params.append('cursor', pageParam)
+      params.append('limit', '20')
+      
+      const response = await api.get<PostFeedResponse>(`/posts/for-you?${params}`)
+      return response.data
+    },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
+  })
+}
+
 export function useAnonymousFeed(category?: PostCategory) {
   return useInfiniteQuery({
     queryKey: ['anonymous', category],

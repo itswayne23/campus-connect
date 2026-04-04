@@ -301,3 +301,31 @@ CREATE TABLE IF NOT EXISTS public.delete_requests (
 -- Index for delete_requests
 CREATE INDEX IF NOT EXISTS idx_delete_requests_status ON public.delete_requests(status);
 CREATE INDEX IF NOT EXISTS idx_delete_requests_created ON public.delete_requests(created_at DESC);
+
+-- Notification Settings table
+CREATE TABLE IF NOT EXISTS public.notification_settings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE UNIQUE,
+    push_likes BOOLEAN DEFAULT true,
+    push_comments BOOLEAN DEFAULT true,
+    push_follows BOOLEAN DEFAULT true,
+    push_messages BOOLEAN DEFAULT true,
+    push_mentions BOOLEAN DEFAULT true,
+    email_likes BOOLEAN DEFAULT false,
+    email_comments BOOLEAN DEFAULT false,
+    email_follows BOOLEAN DEFAULT true,
+    email_messages BOOLEAN DEFAULT false,
+    email_mentions BOOLEAN DEFAULT true,
+    push_endpoint TEXT,
+    push_keys_p256dh TEXT,
+    push_keys_auth TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Notification settings policies
+ALTER TABLE public.notification_settings ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view own notification settings" ON public.notification_settings FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY "Users can update own notification settings" ON public.notification_settings FOR UPDATE USING (user_id = auth.uid());
+CREATE POLICY "Users can insert own notification settings" ON public.notification_settings FOR INSERT WITH CHECK (user_id = auth.uid());

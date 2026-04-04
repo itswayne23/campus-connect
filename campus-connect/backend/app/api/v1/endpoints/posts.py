@@ -41,6 +41,40 @@ async def get_explore_feed(
     feed = await post_service.get_explore_feed(current_user_id, cursor, limit)
     return feed
 
+@router.get("/search", response_model=PostFeedResponse)
+async def search_posts(
+    q: Optional[str] = Query(None),
+    category: Optional[str] = Query(None),
+    hashtag: Optional[str] = Query(None),
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
+    sort_by: str = Query("recent", regex="^(recent|popular|trending)$"),
+    cursor: Optional[str] = Query(None),
+    limit: int = Query(20, le=50),
+    current_user_id: str = Depends(get_current_user_id)
+):
+    results = await post_service.search_posts(
+        current_user_id,
+        q=q,
+        category=category,
+        hashtag=hashtag,
+        date_from=date_from,
+        date_to=date_to,
+        sort_by=sort_by,
+        cursor=cursor,
+        limit=limit
+    )
+    return results
+
+@router.get("/for-you", response_model=PostFeedResponse)
+async def get_for_you_feed(
+    cursor: Optional[str] = Query(None),
+    limit: int = Query(20, le=50),
+    current_user_id: str = Depends(get_current_user_id)
+):
+    feed = await post_service.get_for_you_feed(current_user_id, cursor, limit)
+    return feed
+
 @router.get("/pending", response_model=List[PostResponse])
 async def get_pending_posts(
     current_user_id: str = Depends(get_current_user_id)

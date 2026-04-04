@@ -1,6 +1,13 @@
 from fastapi import APIRouter, HTTPException, Depends
 from app.schemas.notification import NotificationListResponse
+from app.schemas.notification_settings import NotificationSettings, NotificationSettingsResponse, PushSubscription
 from app.services.notification_service import notification_service
+from app.services.notification_settings_service import (
+    get_notification_settings,
+    update_notification_settings,
+    save_push_subscription,
+    remove_push_subscription
+)
 from app.api.deps import get_current_user_id
 
 router = APIRouter()
@@ -30,3 +37,29 @@ async def mark_all_read(
 ):
     success = notification_service.mark_all_as_read(current_user_id)
     return {"message": "All notifications marked as read"}
+
+@router.get("/settings", response_model=NotificationSettingsResponse)
+async def get_settings(
+    current_user_id: str = Depends(get_current_user_id)
+):
+    return await get_notification_settings(current_user_id)
+
+@router.put("/settings", response_model=NotificationSettingsResponse)
+async def update_settings(
+    settings: NotificationSettings,
+    current_user_id: str = Depends(get_current_user_id)
+):
+    return await update_notification_settings(current_user_id, settings)
+
+@router.post("/push/subscribe")
+async def subscribe_push(
+    subscription: PushSubscription,
+    current_user_id: str = Depends(get_current_user_id)
+):
+    return await save_push_subscription(current_user_id, subscription)
+
+@router.delete("/push/unsubscribe")
+async def unsubscribe_push(
+    current_user_id: str = Depends(get_current_user_id)
+):
+    return await remove_push_subscription(current_user_id)

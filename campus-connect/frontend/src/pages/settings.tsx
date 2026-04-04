@@ -6,9 +6,12 @@ import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
 import { useUpdateProfile, useUploadAvatar, useDeleteAvatar } from '@/hooks/use-users'
+import { useNotificationSettings, useUpdateNotificationSettings, useSubscribePush, useUnsubscribePush } from '@/hooks/use-notifications'
 import { toast } from 'sonner'
-import { Camera, Upload, Trash2, Loader2 } from 'lucide-react'
+import { Camera, Upload, Trash2, Loader2, Bell, BellOff } from 'lucide-react'
 
 export function SettingsPage() {
   const { user } = useAuthStore()
@@ -16,12 +19,24 @@ export function SettingsPage() {
   const uploadAvatar = useUploadAvatar()
   const deleteAvatar = useDeleteAvatar()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const { data: notificationSettings } = useNotificationSettings()
+  const updateNotifications = useUpdateNotificationSettings()
+  const subscribePush = useSubscribePush()
+  const unsubscribePush = useUnsubscribePush()
 
   const [username, setUsername] = useState(user?.username || '')
   const [bio, setBio] = useState(user?.bio || '')
   const [university, setUniversity] = useState(user?.university || '')
   const [showAvatarDialog, setShowAvatarDialog] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+
+  const [pushLikes, setPushLikes] = useState(notificationSettings?.push_likes ?? true)
+  const [pushComments, setPushComments] = useState(notificationSettings?.push_comments ?? true)
+  const [pushFollows, setPushFollows] = useState(notificationSettings?.push_follows ?? true)
+  const [pushMessages, setPushMessages] = useState(notificationSettings?.push_messages ?? true)
+  const [pushMentions, setPushMentions] = useState(notificationSettings?.push_mentions ?? true)
+  const [emailFollows, setEmailFollows] = useState(notificationSettings?.email_follows ?? true)
+  const [emailMentions, setEmailMentions] = useState(notificationSettings?.email_mentions ?? true)
 
   const getInitials = (name: string) => {
     return name.slice(0, 2).toUpperCase()
@@ -41,6 +56,86 @@ export function SettingsPage() {
         },
       }
     )
+  }
+
+  const handleSaveNotifications = () => {
+    updateNotifications.mutate(
+      {
+        push_likes: pushLikes,
+        push_comments: pushComments,
+        push_follows: pushFollows,
+        push_messages: pushMessages,
+        push_mentions: pushMentions,
+        email_follows: emailFollows,
+        email_mentions: emailMentions,
+      },
+      {
+        onSuccess: () => {
+          toast.success('Notification settings updated!')
+        },
+        onError: () => {
+          toast.error('Failed to update notification settings')
+        },
+      }
+    )
+  }
+
+  const handleTogglePushNotifications = async () => {
+    if (notificationSettings?.push_subscribed) {
+      unsubscribePush.mutate(undefined, {
+        onSuccess: () => {
+          toast.success('Push notifications disabled')
+        },
+        onError: () => {
+          toast.error('Failed to disable push notifications')
+        },
+      })
+    } else {
+      if ('Notification' in window && Notification.permission === 'granted') {
+        try {
+          const registration = await navigator.serviceWorker.ready
+          const subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: import.meta.env.VITE_VAPID_PUBLIC_KEY
+          })
+          subscribePush.mutate(subscription.toJSON(), {
+            onSuccess: () => {
+              toast.success('Push notifications enabled!')
+            },
+            onError: () => {
+              toast.error('Failed to enable push notifications')
+            },
+          })
+        } catch (error) {
+          toast.error('Failed to subscribe to push notifications')
+        }
+      } else if ('Notification' in window && Notification.permission === 'default') {
+        const permission = await Notification.requestPermission()
+        if (permission === 'granted') {
+          try {
+            const registration = await navigator.serviceWorker.ready
+            const subscription = await registration.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: import.meta.env.VITE_VAPID_PUBLIC_KEY
+            })
+            subscribePush.mutate(subscription.toJSON(), {
+              onSuccess: () => {
+                toast.success('Push notifications enabled!')
+              },
+              onError: () => {
+                toast.error('Failed to enable push notifications')
+              },
+            })
+          } catch (error) {
+            toast.error('Failed to subscribe to push notifications')
+          }
+        }
+      } else if (!('Notification' in window)) {
+        toast.error('Push notifications are not supported in this browser')
+      } else if (Notification.permission === 'denied') {
+        toast.error('Please enable notifications in your browser settings')
+      }
+    }
   }
 
   const handleAvatarClick = () => {
@@ -232,6 +327,130 @@ export function SettingsPage() {
               </>
             ) : (
               'Save Changes'
+            )}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Notification Settings</CardTitle>
+          <CardDescription>Manage how you receive notifications</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {notificationSettings?.push_subscribed ? (
+                  <Bell className="h-5 w-5 text-primary" />
+                ) : (
+                  <BellOff className="h-5 w-5 text-muted-foreground" />
+                )}
+                <div>
+                  <Label htmlFor="push-enabled" className="font-medium">Push Notifications</Label>
+                  <p className="text-sm text-muted-foreground">
+                    {notificationSettings?.push_subscribed ? 'Enabled' : 'Disabled'}
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant={notificationSettings?.push_subscribed ? "outline" : "default"}
+                size="sm"
+                onClick={handleTogglePushNotifications}
+                disabled={subscribePush.isPending || unsubscribePush.isPending}
+              >
+                {notificationSettings?.push_subscribed ? 'Disable' : 'Enable'}
+              </Button>
+            </div>
+
+            <div className="border-t pt-4 space-y-4">
+              <h4 className="text-sm font-medium text-muted-foreground">Push Notifications</h4>
+              
+              <div className="flex items-center justify-between">
+                <Label htmlFor="push-likes">Likes</Label>
+                <Switch
+                  id="push-likes"
+                  checked={pushLikes}
+                  onCheckedChange={setPushLikes}
+                  disabled={!notificationSettings?.push_subscribed}
+                />
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <Label htmlFor="push-comments">Comments</Label>
+                <Switch
+                  id="push-comments"
+                  checked={pushComments}
+                  onCheckedChange={setPushComments}
+                  disabled={!notificationSettings?.push_subscribed}
+                />
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <Label htmlFor="push-follows">New Followers</Label>
+                <Switch
+                  id="push-follows"
+                  checked={pushFollows}
+                  onCheckedChange={setPushFollows}
+                  disabled={!notificationSettings?.push_subscribed}
+                />
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <Label htmlFor="push-messages">Messages</Label>
+                <Switch
+                  id="push-messages"
+                  checked={pushMessages}
+                  onCheckedChange={setPushMessages}
+                  disabled={!notificationSettings?.push_subscribed}
+                />
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <Label htmlFor="push-mentions">Mentions</Label>
+                <Switch
+                  id="push-mentions"
+                  checked={pushMentions}
+                  onCheckedChange={setPushMentions}
+                  disabled={!notificationSettings?.push_subscribed}
+                />
+              </div>
+            </div>
+
+            <div className="border-t pt-4 space-y-4">
+              <h4 className="text-sm font-medium text-muted-foreground">Email Notifications</h4>
+              
+              <div className="flex items-center justify-between">
+                <Label htmlFor="email-follows">New Followers</Label>
+                <Switch
+                  id="email-follows"
+                  checked={emailFollows}
+                  onCheckedChange={setEmailFollows}
+                />
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <Label htmlFor="email-mentions">Mentions</Label>
+                <Switch
+                  id="email-mentions"
+                  checked={emailMentions}
+                  onCheckedChange={setEmailMentions}
+                />
+              </div>
+            </div>
+          </div>
+
+          <Button 
+            onClick={handleSaveNotifications}
+            disabled={updateNotifications.isPending}
+          >
+            {updateNotifications.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              'Save Notification Settings'
             )}
           </Button>
         </CardContent>
