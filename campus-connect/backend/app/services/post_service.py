@@ -61,6 +61,19 @@ class PostService:
                 "total_votes": 0
             }
         
+        post_payload = {
+            "author_id": author_id,
+            "content": post_data.content,
+            "media_urls": post_data.media_urls or [],
+            "is_anonymous": post_data.is_anonymous,
+            "anonymous_name": anonymous_name,
+            "category": post_data.category.value if post_data.category else None,
+            "status": status,
+            "likes_count": 0,
+            "comments_count": 0,
+            "poll_id": poll_id
+        }
+        
         if poll_data:
             poll_insert = service_client.table("polls").insert(poll_data).execute()
             if not poll_insert.data:
