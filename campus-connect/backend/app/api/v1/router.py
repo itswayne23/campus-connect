@@ -19,6 +19,12 @@ from .endpoints.export import router as export_router
 from .endpoints.collections import router as collections_router
 from .endpoints.social import router as social_router
 from .endpoints.engagement import router as engagement_router
+from .endpoints.mood import router as mood_router
+from .endpoints.study_partner import router as study_partner_router
+from .endpoints.professor import router as professor_router
+from .endpoints.course_review import router as course_review_router
+from .endpoints.gamification import router as gamification_router
+from .endpoints.ai_chat import router as ai_chat_router
 
 
 api_router = APIRouter()
@@ -43,3 +49,9 @@ api_router.include_router(export_router, prefix="/export", tags=["Data Export"])
 api_router.include_router(collections_router, prefix="/features", tags=["Collections & Theme"])
 api_router.include_router(social_router, prefix="/social", tags=["Social Features"])
 api_router.include_router(engagement_router, prefix="/engagement", tags=["Engagement"])
+api_router.include_router(mood_router, prefix="/mood", tags=["Mood Tracking"])
+api_router.include_router(study_partner_router, prefix="/study", tags=["Study Partners"])
+api_router.include_router(professor_router, prefix="/professors", tags=["Professor Ratings"])
+api_router.include_router(course_review_router, prefix="/courses", tags=["Course Reviews"])
+api_router.include_router(gamification_router, prefix="/gamification", tags=["Gamification"])
+api_router.include_router(ai_chat_router, prefix="/ai", tags=["AI Chat"])

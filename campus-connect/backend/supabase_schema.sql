@@ -847,3 +847,198 @@ CREATE POLICY "Users can delete own highlights" ON public.story_highlights FOR D
 CREATE POLICY "Users can manage own highlight items" ON public.story_highlight_items FOR ALL USING (
     EXISTS (SELECT 1 FROM public.story_highlights WHERE id = highlight_id AND user_id = auth.uid())
 );
+
+-- ============================================
+-- PHASE 10: AI & Academic Features + Gamification
+-- ============================================
+
+-- Mood tracking
+CREATE TABLE IF NOT EXISTS public.mood_entries (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    mood TEXT NOT NULL,
+    note TEXT,
+    activities JSONB DEFAULT '[]',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_mood_user ON public.mood_entries(user_id);
+CREATE INDEX IF NOT EXISTS idx_mood_created ON public.mood_entries(created_at DESC);
+
+ALTER TABLE public.mood_entries ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can manage own mood entries" ON public.mood_entries FOR ALL USING (user_id = auth.uid());
+
+-- Study partner requests
+CREATE TABLE IF NOT EXISTS public.study_partner_requests (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    course TEXT NOT NULL,
+    topic TEXT,
+    description TEXT,
+    preferred_method TEXT DEFAULT 'both',
+    availability TEXT,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.study_matches (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    request_id UUID REFERENCES public.study_partner_requests(id) ON DELETE CASCADE,
+    matched_user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(request_id, matched_user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_study_request_user ON public.study_partner_requests(user_id);
+CREATE INDEX IF NOT EXISTS idx_study_request_active ON public.study_partner_requests(is_active);
+CREATE INDEX IF NOT EXISTS idx_study_matches_request ON public.study_matches(request_id);
+
+ALTER TABLE public.study_partner_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.study_matches ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Study partner requests viewable by all" ON public.study_partner_requests FOR SELECT USING (true);
+CREATE POLICY "Users can manage own requests" ON public.study_partner_requests FOR ALL USING (user_id = auth.uid());
+CREATE POLICY "Users can create matches" ON public.study_matches FOR INSERT WITH CHECK (user_id = auth.uid());
+CREATE POLICY "Users can view own matches" ON public.study_matches FOR SELECT USING (user_id = auth.uid());
+
+-- Professor ratings
+CREATE TABLE IF NOT EXISTS public.professor_ratings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    professor_name TEXT NOT NULL,
+    course_code TEXT NOT NULL,
+    department TEXT,
+    overall_rating INTEGER NOT NULL CHECK (overall_rating BETWEEN 1 AND 5),
+    difficulty INTEGER NOT NULL CHECK (difficulty BETWEEN 1 AND 5),
+    would_take_again BOOLEAN NOT NULL,
+    attendance_mandatory BOOLEAN DEFAULT false,
+    grade_type TEXT,
+    comment TEXT,
+    upvotes INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(user_id, professor_name, course_code)
+);
+
+CREATE INDEX IF NOT EXISTS idx_professor_name ON public.professor_ratings(professor_name);
+CREATE INDEX IF NOT EXISTS idx_professor_course ON public.professor_ratings(course_code);
+
+ALTER TABLE public.professor_ratings ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Professor ratings viewable by all" ON public.professor_ratings FOR SELECT USING (true);
+CREATE POLICY "Users can create ratings" ON public.professor_ratings FOR INSERT WITH CHECK (user_id = auth.uid());
+CREATE POLICY "Users can update own ratings" ON public.professor_ratings FOR UPDATE USING (user_id = auth.uid());
+
+-- Course reviews
+CREATE TABLE IF NOT EXISTS public.course_reviews (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    course_code TEXT NOT NULL,
+    course_name TEXT NOT NULL,
+    department TEXT,
+    semester TEXT,
+    overall_rating INTEGER NOT NULL CHECK (overall_rating BETWEEN 1 AND 5),
+    difficulty INTEGER NOT NULL CHECK (difficulty BETWEEN 1 AND 5),
+    workload INTEGER NOT NULL CHECK (workload BETWEEN 1 AND 5),
+    lecture_quality INTEGER NOT NULL CHECK (lecture_quality BETWEEN 1 AND 5),
+    materials_quality INTEGER NOT NULL CHECK (materials_quality BETWEEN 1 AND 5),
+    comment TEXT,
+    pros JSONB DEFAULT '[]',
+    cons JSONB DEFAULT '[]',
+    upvotes INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(user_id, course_code, semester)
+);
+
+CREATE INDEX IF NOT EXISTS idx_course_code ON public.course_reviews(course_code);
+CREATE INDEX IF NOT EXISTS idx_course_department ON public.course_reviews(department);
+
+ALTER TABLE public.course_reviews ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Course reviews viewable by all" ON public.course_reviews FOR SELECT USING (true);
+CREATE POLICY "Users can create reviews" ON public.course_reviews FOR INSERT WITH CHECK (user_id = auth.uid());
+CREATE POLICY "Users can update own reviews" ON public.course_reviews FOR UPDATE USING (user_id = auth.uid());
+
+-- Gamification: Achievements
+CREATE TABLE IF NOT EXISTS public.achievements (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name TEXT NOT NULL UNIQUE,
+    description TEXT NOT NULL,
+    icon TEXT,
+    category TEXT NOT NULL,
+    points_required INTEGER DEFAULT 0,
+    badge_type TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.user_achievements (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    achievement_id UUID REFERENCES public.achievements(id) ON DELETE CASCADE,
+    earned_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(user_id, achievement_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_achievements_user ON public.user_achievements(user_id);
+
+ALTER TABLE public.achievements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_achievements ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Achievements viewable by all" ON public.achievements FOR SELECT USING (true);
+CREATE POLICY "Users can view own achievements" ON public.user_achievements FOR SELECT USING (user_id = auth.uid());
+
+-- Gamification: Points system
+CREATE TABLE IF NOT EXISTS public.points_transactions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    points INTEGER NOT NULL,
+    reason TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.user_gamification (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE UNIQUE,
+    total_points INTEGER DEFAULT 0,
+    current_streak INTEGER DEFAULT 0,
+    longest_streak INTEGER DEFAULT 0,
+    last_activity_date DATE,
+    level INTEGER DEFAULT 1,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_points_user ON public.points_transactions(user_id);
+CREATE INDEX IF NOT EXISTS idx_gamification_points ON public.user_gamification(total_points DESC);
+
+ALTER TABLE public.points_transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_gamification ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Gamification viewable by all" ON public.user_gamification FOR SELECT USING (true);
+CREATE POLICY "Users can view own points" ON public.points_transactions FOR SELECT USING (user_id = auth.uid());
+
+-- AI Chat
+CREATE TABLE IF NOT EXISTS public.ai_chat_sessions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.ai_chat_messages (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    session_id UUID REFERENCES public.ai_chat_sessions(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    message TEXT NOT NULL,
+    role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_ai_session ON public.ai_chat_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_ai_messages_session ON public.ai_chat_messages(session_id);
+
+ALTER TABLE public.ai_chat_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ai_chat_messages ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can manage own chat sessions" ON public.ai_chat_sessions FOR ALL USING (user_id = auth.uid());
+CREATE POLICY "Users can manage own messages" ON public.ai_chat_messages FOR ALL USING (user_id = auth.uid());
+

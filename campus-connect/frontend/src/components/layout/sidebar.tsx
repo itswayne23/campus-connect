@@ -5,7 +5,7 @@ import { api } from '@/lib/api'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { Home, MessageCircle, Settings, UserPlus, TrendingUp, Bookmark, BarChart3, Activity, Download, FolderOpen, Hash, Calendar } from 'lucide-react'
+import { Home, MessageCircle, Settings, UserPlus, TrendingUp, Bookmark, BarChart3, Activity, Download, FolderOpen, Hash, Calendar, GraduationCap, Trophy, Bot, Heart, Users } from 'lucide-react'
 import type { User } from '@/types'
 
 const sidebarItems = [
@@ -16,6 +16,11 @@ const sidebarItems = [
   { path: '/anonymous', icon: MessageCircle, label: 'Anonymous' },
   { path: '/bookmarks', icon: Bookmark, label: 'Saved' },
   { path: '/collections', icon: FolderOpen, label: 'Collections' },
+  { path: '/academics', icon: GraduationCap, label: 'Academics' },
+  { path: '/study-partners', icon: Users, label: 'Study Partners' },
+  { path: '/mood', icon: Heart, label: 'Mood Tracker' },
+  { path: '/gamification', icon: Trophy, label: 'Gamification' },
+  { path: '/ai-chat', icon: Bot, label: 'AI Assistant' },
   { path: '/analytics', icon: BarChart3, label: 'Analytics' },
   { path: '/activity', icon: Activity, label: 'Activity' },
   { path: '/export', icon: Download, label: 'Export Data' },

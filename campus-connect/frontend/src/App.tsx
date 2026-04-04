@@ -21,6 +21,11 @@ import { ExportPage } from '@/pages/export'
 import { CollectionsPage } from '@/pages/collections'
 import { HashtagsPage } from '@/pages/hashtags'
 import { EventsPage } from '@/pages/events'
+import { AcademicsPage } from '@/pages/academics'
+import { GamificationPage } from '@/pages/gamification'
+import { AIChatPage } from '@/pages/ai-chat'
+import { MoodPage } from '@/pages/mood'
+import { StudyPartnersPage } from '@/pages/study-partners'
 import { BottomNav } from '@/components/layout/bottom-nav'
 import { ErrorBoundary } from '@/components/error-boundary'
 import { useRealtime } from '@/hooks/use-realtime'
@@ -212,6 +217,46 @@ export default function App() {
         element={
           <ProtectedRoute>
             <EventsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/academics"
+        element={
+          <ProtectedRoute>
+            <AcademicsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/gamification"
+        element={
+          <ProtectedRoute>
+            <GamificationPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/ai-chat"
+        element={
+          <ProtectedRoute>
+            <AIChatPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/mood"
+        element={
+          <ProtectedRoute>
+            <MoodPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/study-partners"
+        element={
+          <ProtectedRoute>
+            <StudyPartnersPage />
           </ProtectedRoute>
         }
       />
