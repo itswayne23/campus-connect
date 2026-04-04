@@ -14,6 +14,8 @@ from .endpoints.verification import router as verification_router
 from .endpoints.analytics import router as analytics_router
 from .endpoints.message_enhancements import router as message_enhancements_router
 from .endpoints.admin_management import router as admin_management_router
+from .endpoints.activity import router as activity_router
+from .endpoints.export import router as export_router
 
 
 api_router = APIRouter()
@@ -33,3 +35,5 @@ api_router.include_router(trending_router, prefix="/trending", tags=["Trending"]
 api_router.include_router(verification_router, prefix="/verification", tags=["Verification & Badges"])
 api_router.include_router(analytics_router, prefix="/analytics", tags=["Analytics"])
 api_router.include_router(admin_management_router, prefix="/admin", tags=["Admin Management"])
+api_router.include_router(activity_router, prefix="/activity", tags=["Activity Log"])
+api_router.include_router(export_router, prefix="/export", tags=["Data Export"])

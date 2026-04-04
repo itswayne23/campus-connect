@@ -5,7 +5,7 @@ import { api } from '@/lib/api'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { Home, MessageCircle, Settings, UserPlus, TrendingUp, Bookmark, BarChart3 } from 'lucide-react'
+import { Home, MessageCircle, Settings, UserPlus, TrendingUp, Bookmark, BarChart3, Activity, Download } from 'lucide-react'
 import type { User } from '@/types'
 
 const sidebarItems = [
@@ -14,6 +14,8 @@ const sidebarItems = [
   { path: '/anonymous', icon: MessageCircle, label: 'Anonymous' },
   { path: '/bookmarks', icon: Bookmark, label: 'Saved' },
   { path: '/analytics', icon: BarChart3, label: 'Analytics' },
+  { path: '/activity', icon: Activity, label: 'Activity' },
+  { path: '/export', icon: Download, label: 'Export Data' },
 ]
 
 export function Sidebar() {

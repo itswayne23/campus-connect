@@ -507,3 +507,59 @@ CREATE POLICY "Admins can view all reports" ON public.content_reports FOR SELECT
 CREATE POLICY "Admins can update reports" ON public.content_reports FOR UPDATE USING (
     EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
 );
+
+-- User activity log
+CREATE TABLE IF NOT EXISTS public.activity_log (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    action_type TEXT NOT NULL CHECK (action_type IN ('post_created', 'post_deleted', 'post_liked', 'post_commented', 'follow', 'unfollow', 'profile_updated', 'login', 'logout', 'settings_changed')),
+    entity_type TEXT,
+    entity_id UUID,
+    metadata JSONB DEFAULT '{}',
+    ip_address TEXT,
+    user_agent TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Activity log indexes
+CREATE INDEX IF NOT EXISTS idx_activity_log_user ON public.activity_log(user_id);
+CREATE INDEX IF NOT EXISTS idx_activity_log_type ON public.activity_log(action_type);
+CREATE INDEX IF NOT EXISTS idx_activity_log_created ON public.activity_log(created_at DESC);
+
+-- Activity log policies
+ALTER TABLE public.activity_log ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view own activity" ON public.activity_log FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY "Users can create own activity" ON public.activity_log FOR INSERT WITH CHECK (user_id = auth.uid());
+
+-- Data export requests for GDPR compliance
+CREATE TABLE IF NOT EXISTS public.data_export_requests (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed')),
+    file_url TEXT,
+    requested_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    completed_at TIMESTAMP WITH TIME ZONE,
+    expires_at TIMESTAMP WITH TIME ZONE
+);
+
+-- Data export indexes
+CREATE INDEX IF NOT EXISTS idx_data_export_user ON public.data_export_requests(user_id);
+CREATE INDEX IF NOT EXISTS idx_data_export_status ON public.data_export_requests(status);
+
+-- Data export policies
+ALTER TABLE public.data_export_requests ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can manage own export requests" ON public.data_export_requests FOR ALL USING (user_id = auth.uid());
+CREATE POLICY "Admins can view all export requests" ON public.data_export_requests FOR SELECT USING (
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+);
+
+-- Performance: Additional indexes for common queries
+CREATE INDEX IF NOT EXISTS idx_likes_user ON public.likes(user_id);
+CREATE INDEX IF NOT EXISTS idx_follows_following ON public.follows(following_id);
+CREATE INDEX IF NOT EXISTS idx_posts_author_created ON public.posts(author_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_comments_author ON public.comments(author_id);
+
+-- Composite index for feed queries
+CREATE INDEX IF NOT EXISTS idx_posts_feed ON public.posts(status, created_at DESC) WHERE status = 'approved';
