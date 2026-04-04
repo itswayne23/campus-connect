@@ -61,23 +61,14 @@ class PostService:
                 "total_votes": 0
             }
         
-        post_payload = {
-            "author_id": author_id,
-            "content": post_data.content,
-            "media_urls": post_data.media_urls or [],
-            "is_anonymous": post_data.is_anonymous,
-            "anonymous_name": anonymous_name,
-            "category": post_data.category.value if post_data.category else None,
-            "status": status,
-            "likes_count": 0,
-            "comments_count": 0,
-            "poll_id": poll_id
-        }
+        if poll_data:
+            poll_insert = service_client.table("polls").insert(poll_data).execute()
+            if not poll_insert.data:
+                return None
+            poll_id = poll_insert.data[0]["id"]
+            post_payload["poll_id"] = poll_id
         
         response = service_client.table("posts").insert(post_payload).execute()
-        
-        if response.data and poll_data:
-            service_client.table("polls").insert(poll_data).execute()
         
         if response.data:
             return await self.get_post_by_id(response.data[0]["id"], author_id)
@@ -112,7 +103,9 @@ class PostService:
             query = query.in_("author_id", following_ids)
         
         if excluded_ids:
-            query = query.not_in("author_id", excluded_ids)
+            query = query.in_("author_id", following_ids).neq("author_id", user_id)
+            for excluded_id in excluded_ids:
+                query = query.neq("author_id", excluded_id)
         
         query = query.order("created_at", desc=True).limit(limit + 1)
         
@@ -171,7 +164,8 @@ class PostService:
         query = self.supabase.table("posts").select("*").eq("status", "approved").order("likes_count", desc=True).limit(limit + 1)
         
         if blocked_ids:
-            query = query.not_in("author_id", blocked_ids)
+            for blocked_id in blocked_ids:
+                query = query.neq("author_id", blocked_id)
         
         if cursor:
             query = query.lt("likes_count", int(cursor))
@@ -211,7 +205,8 @@ class PostService:
         query = self.supabase.table("posts").select("*").eq("status", "approved")
         
         if blocked_ids:
-            query = query.not_in("author_id", blocked_ids)
+            for blocked_id in blocked_ids:
+                query = query.neq("author_id", blocked_id)
         
         if q:
             query = query.ilike("content", f"%{q}%")
@@ -283,10 +278,11 @@ class PostService:
         following_response = self.supabase.table("follows").select("following_id").eq("follower_id", user_id).execute()
         following_ids = [f["following_id"] for f in following_response.data]
         
-        query = self.supabase.table("posts").select("*").eq("status", "approved")
+        query = self.supabase.table("posts").select("*").eq("status", "approved").neq("author_id", user_id)
         
         if blocked_ids:
-            query = query.not_in("author_id", blocked_ids)
+            for blocked_id in blocked_ids:
+                query = query.neq("author_id", blocked_id)
         
         query = query.order("created_at", desc=True).limit(limit * 3)
         

@@ -5,7 +5,7 @@ from app.api.deps import get_current_user_id
 
 router = APIRouter()
 
-@router.get("", response_model=TrendingResponse)
+@router.get("/topics", response_model=TrendingResponse)
 async def get_trending_topics(
     limit: int = Query(default=10, ge=1, le=50),
     current_user_id: str = None
