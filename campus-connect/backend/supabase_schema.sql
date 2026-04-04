@@ -651,3 +651,73 @@ CREATE POLICY "Users can view own scheduled stories" ON public.scheduled_stories
 CREATE POLICY "Users can create own scheduled stories" ON public.scheduled_stories FOR INSERT WITH CHECK (user_id = auth.uid());
 CREATE POLICY "Users can update own scheduled stories" ON public.scheduled_stories FOR UPDATE USING (user_id = auth.uid());
 CREATE POLICY "Users can delete own scheduled stories" ON public.scheduled_stories FOR DELETE USING (user_id = auth.uid());
+
+-- Hashtag following
+CREATE TABLE IF NOT EXISTS public.hashtag_follows (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    hashtag TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(user_id, hashtag)
+);
+
+-- Hashtag follows indexes
+CREATE INDEX IF NOT EXISTS idx_hashtag_follows_user ON public.hashtag_follows(user_id);
+CREATE INDEX IF NOT EXISTS idx_hashtag_follows_hashtag ON public.hashtag_follows(hashtag);
+
+-- Hashtag follows policies
+ALTER TABLE public.hashtag_follows ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view own hashtag follows" ON public.hashtag_follows FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY "Users can follow hashtags" ON public.hashtag_follows FOR INSERT WITH CHECK (user_id = auth.uid());
+CREATE POLICY "Users can unfollow hashtags" ON public.hashtag_follows FOR DELETE USING (user_id = auth.uid());
+
+-- Bookmarks with notes
+ALTER TABLE public.bookmarks ADD COLUMN IF NOT EXISTS note TEXT;
+ALTER TABLE public.bookmarks ADD COLUMN IF NOT EXISTS folder TEXT;
+
+-- Post location
+ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS location TEXT;
+ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;
+ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;
+
+-- User mentions tracking
+CREATE TABLE IF NOT EXISTS public.mentions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    mentioned_by UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    post_id UUID REFERENCES public.posts(id) ON DELETE CASCADE,
+    comment_id UUID REFERENCES public.comments(id) ON DELETE CASCADE,
+    is_read BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Mentions indexes
+CREATE INDEX IF NOT EXISTS idx_mentions_user ON public.mentions(user_id);
+CREATE INDEX IF NOT EXISTS idx_mentions_post ON public.mentions(post_id);
+
+-- Mentions policies
+ALTER TABLE public.mentions ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view own mentions" ON public.mentions FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY "System can create mentions" ON public.mentions FOR INSERT WITH CHECK (true);
+CREATE POLICY "Users can update own mentions" ON public.mentions FOR UPDATE USING (user_id = auth.uid());
+
+-- Quick reactions (liked posts tracking for double-tap)
+CREATE TABLE IF NOT EXISTS public.quick_reactions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    post_id UUID REFERENCES public.posts(id) ON DELETE CASCADE,
+    reaction_type TEXT DEFAULT 'like',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(user_id, post_id)
+);
+
+-- Quick reactions indexes
+CREATE INDEX IF NOT EXISTS idx_quick_reactions_user ON public.quick_reactions(user_id);
+CREATE INDEX IF NOT EXISTS idx_quick_reactions_post ON public.quick_reactions(post_id);
+
+-- Quick reactions policies
+ALTER TABLE public.quick_reactions ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can manage own reactions" ON public.quick_reactions FOR ALL USING (user_id = auth.uid());

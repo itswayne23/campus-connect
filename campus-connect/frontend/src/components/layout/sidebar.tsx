@@ -5,12 +5,13 @@ import { api } from '@/lib/api'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { Home, MessageCircle, Settings, UserPlus, TrendingUp, Bookmark, BarChart3, Activity, Download, FolderOpen } from 'lucide-react'
+import { Home, MessageCircle, Settings, UserPlus, TrendingUp, Bookmark, BarChart3, Activity, Download, FolderOpen, Hash } from 'lucide-react'
 import type { User } from '@/types'
 
 const sidebarItems = [
   { path: '/', icon: Home, label: 'Home Feed' },
   { path: '/explore', icon: TrendingUp, label: 'Explore' },
+  { path: '/hashtags', icon: Hash, label: 'Hashtags' },
   { path: '/anonymous', icon: MessageCircle, label: 'Anonymous' },
   { path: '/bookmarks', icon: Bookmark, label: 'Saved' },
   { path: '/collections', icon: FolderOpen, label: 'Collections' },

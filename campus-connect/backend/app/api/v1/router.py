@@ -17,6 +17,7 @@ from .endpoints.admin_management import router as admin_management_router
 from .endpoints.activity import router as activity_router
 from .endpoints.export import router as export_router
 from .endpoints.collections import router as collections_router
+from .endpoints.social import router as social_router
 
 
 api_router = APIRouter()
@@ -39,3 +40,4 @@ api_router.include_router(admin_management_router, prefix="/admin", tags=["Admin
 api_router.include_router(activity_router, prefix="/activity", tags=["Activity Log"])
 api_router.include_router(export_router, prefix="/export", tags=["Data Export"])
 api_router.include_router(collections_router, prefix="/features", tags=["Collections & Theme"])
+api_router.include_router(social_router, prefix="/social", tags=["Social Features"])

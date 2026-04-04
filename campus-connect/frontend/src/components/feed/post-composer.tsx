@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Card } from '@/components/ui/card'
-import { Image, Video, Globe, Lock, Send, X, Loader2, BarChart3, Plus, Trash2, Save } from 'lucide-react'
+import { Image, Video, Globe, Lock, Send, X, Loader2, BarChart3, Plus, Trash2, Save, MapPin } from 'lucide-react'
 import { toast } from 'sonner'
 import type { User, PollOption } from '@/types'
 
@@ -37,6 +37,8 @@ export function PostComposer() {
   const [showPoll, setShowPoll] = useState(false)
   const [poll, setPoll] = useState<PollDraft>({ question: '', options: [{ id: '1', text: '', votes: 0 }, { id: '2', text: '', votes: 0 }] })
   const [hasDraft, setHasDraft] = useState(false)
+  const [location, setLocation] = useState('')
+  const [showLocation, setShowLocation] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const videoInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -107,6 +109,10 @@ export function PostComposer() {
       }
     }
 
+    if (location.trim()) {
+      postPayload.location = location.trim()
+    }
+
     createPost.mutate(postPayload, {
       onSuccess: () => {
         setContent('')
@@ -114,6 +120,8 @@ export function PostComposer() {
         setMedia([])
         setShowPoll(false)
         setPoll({ question: '', options: [{ id: '1', text: '', votes: 0 }, { id: '2', text: '', votes: 0 }] })
+        setLocation('')
+        setShowLocation(false)
         clearDraft.mutate()
         setHasDraft(false)
         toast.success('Post created!')
@@ -127,6 +135,8 @@ export function PostComposer() {
     setMedia([])
     setShowPoll(false)
     setPoll({ question: '', options: [{ id: '1', text: '', votes: 0 }, { id: '2', text: '', votes: 0 }] })
+    setLocation('')
+    setShowLocation(false)
     clearDraft.mutate()
     setHasDraft(false)
   }
@@ -374,6 +384,24 @@ export function PostComposer() {
             </div>
           )}
 
+          {showLocation && (
+            <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-orange-500" />
+                <input
+                  type="text"
+                  placeholder="Add location (e.g., Library, Main Campus)"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  className="flex-1 px-3 py-2 text-sm rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <Button variant="ghost" size="sm" onClick={() => setShowLocation(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center justify-between mt-4 pt-4 border-t">
             <div className="flex items-center gap-1">
               <input
@@ -423,6 +451,14 @@ export function PostComposer() {
               <span className="text-xs text-gray-400 px-2">
                 Use # for hashtags, @ to mention
               </span>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className={`h-9 w-9 rounded-full ${showLocation ? 'bg-orange-100 text-orange-600 dark:bg-orange-900 dark:text-orange-300' : 'text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-950'}`}
+                onClick={() => setShowLocation(!showLocation)}
+              >
+                <MapPin className="h-5 w-5" />
+              </Button>
             </div>
 
             <div className="flex items-center gap-2">

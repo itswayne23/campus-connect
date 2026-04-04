@@ -19,6 +19,7 @@ import { AnalyticsPage } from '@/pages/analytics'
 import { ActivityPage } from '@/pages/activity'
 import { ExportPage } from '@/pages/export'
 import { CollectionsPage } from '@/pages/collections'
+import { HashtagsPage } from '@/pages/hashtags'
 import { BottomNav } from '@/components/layout/bottom-nav'
 import { ErrorBoundary } from '@/components/error-boundary'
 import { useRealtime } from '@/hooks/use-realtime'
@@ -194,6 +195,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <CollectionsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/hashtags"
+        element={
+          <ProtectedRoute>
+            <HashtagsPage />
           </ProtectedRoute>
         }
       />
