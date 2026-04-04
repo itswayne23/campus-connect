@@ -46,7 +46,7 @@ class FollowService:
         return {"success": True, "message": "Unfollowed successfully"}
     
     def get_followers(self, user_id: str, current_user_id: str, limit: int = 50) -> List[dict]:
-        response = self.supabase.table("follows").select("follower_id, profiles(*), created_at").eq("following_id", user_id).order("created_at", desc=True).limit(limit).execute()
+        response = self.supabase.table("follows").select("follower_id, profiles!follows_follower_id_fkey(*), created_at").eq("following_id", user_id).order("created_at", desc=True).limit(limit).execute()
         
         followers = []
         for item in response.data:
@@ -58,7 +58,7 @@ class FollowService:
         return followers
     
     def get_following(self, user_id: str, current_user_id: str, limit: int = 50) -> List[dict]:
-        response = self.supabase.table("follows").select("following_id, profiles(*), created_at").eq("follower_id", user_id).order("created_at", desc=True).limit(limit).execute()
+        response = self.supabase.table("follows").select("following_id, profiles!follows_following_id_fkey(*), created_at").eq("follower_id", user_id).order("created_at", desc=True).limit(limit).execute()
         
         following = []
         for item in response.data:

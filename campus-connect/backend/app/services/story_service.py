@@ -39,7 +39,8 @@ class StoryService:
         return await self._build_story_response(story, current_user_id)
     
     async def get_user_stories(self, user_id: str, current_user_id: Optional[str] = None) -> List[dict]:
-        response = self.supabase.table("stories").select("*").eq("user_id", user_id).eq("is_active", True).eq("expires_at", "gt", datetime.utcnow().isoformat()).order("created_at", desc=True).execute()
+        now = datetime.utcnow()
+        response = self.supabase.table("stories").select("*").eq("user_id", user_id).eq("is_active", True).gt("expires_at", now.isoformat()).order("created_at", desc=True).execute()
         
         stories = []
         for story in response.data:

@@ -182,11 +182,11 @@ class UserService:
         return len(response.data) > 0
     
     async def get_blocked_users(self, user_id: str) -> List[dict]:
-        response = self.supabase.table("blocks").select("blocked_id, profiles(id, username, avatar_url)").eq("blocker_id", user_id).execute()
+        response = self.supabase.table("blocks").select("blocked_id, profiles!blocks_blocked_id_fkey(id, username, avatar_url)").eq("blocker_id", user_id).execute()
         return response.data
     
     async def get_muted_users(self, user_id: str) -> List[dict]:
-        response = self.supabase.table("mutes").select("muted_id, profiles(id, username, avatar_url)").eq("muter_id", user_id).execute()
+        response = self.supabase.table("mutes").select("muted_id, profiles!mutes_muted_id_fkey(id, username, avatar_url)").eq("muter_id", user_id).execute()
         return response.data
     
     async def _build_user_response(self, user_id: str, current_user_id: Optional[str] = None) -> dict:

@@ -3,7 +3,7 @@ from app.core.config import settings
 from app.schemas.scheduled_post import ScheduledPostCreate, ScheduledPostUpdate, ScheduledPostResponse, ScheduledPostStatus
 from datetime import datetime
 
-supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
+supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
 
 async def create_scheduled_post(user_id: str, data: ScheduledPostCreate) -> ScheduledPostResponse:
     post_data = {

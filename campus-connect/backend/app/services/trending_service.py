@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import re
 from collections import Counter
 
-supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
+supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
 
 def extract_hashtags(content: str) -> list[str]:
     return re.findall(r'#(\w+)', content.lower())
@@ -58,5 +58,5 @@ async def get_trending(limit: int = 10) -> TrendingResponse:
 
 async def search_hashtag(hashtag: str, limit: int = 20) -> list[dict]:
     pattern = f'%#{hashtag.lower()}%'
-    result = supabase.table('posts').select('*, author:profiles(*)').eq('status', 'approved').ilike('content', pattern).order('created_at', desc=True).limit(limit).execute()
+    result = supabase.table('posts').select('*, author:profiles!posts_author_id_fkey(*)').eq('status', 'approved').ilike('content', pattern).order('created_at', desc=True).limit(limit).execute()
     return result.data
