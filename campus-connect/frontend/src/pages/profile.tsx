@@ -20,6 +20,8 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
+import { VerifiedBadge } from '@/components/verified-badge'
+import { ProfileBadges } from '@/components/badges-display'
 
 export function ProfilePage() {
   const { userId } = useParams<{ userId: string }>()
@@ -132,8 +134,14 @@ export function ProfilePage() {
 
             <div className="flex-1 flex flex-col sm:flex-row justify-between items-start sm:items-center w-full gap-4">
               <div>
-                <h1 className="text-2xl font-bold">{user.username}</h1>
-                <p className="text-muted-foreground text-sm">{user.email}</p>
+                <h1 className="text-2xl font-bold flex items-center gap-2">
+                  {user.username}
+                  {user.is_verified && <VerifiedBadge size="md" />}
+                </h1>
+                <div className="flex items-center gap-2 mt-1">
+                  <p className="text-muted-foreground text-sm">{user.email}</p>
+                  {user.is_own_profile && <ProfileBadges userId={user.id} />}
+                </div>
               </div>
 
               {!user.is_own_profile && (

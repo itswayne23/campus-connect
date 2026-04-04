@@ -6,6 +6,7 @@ export interface User {
   bio: string | null
   university: string | null
   role?: string
+  is_verified?: boolean
   followers_count: number
   following_count: number
   posts_count: number
@@ -14,6 +15,64 @@ export interface User {
   is_muted?: boolean
   is_own_profile?: boolean
   created_at: string
+}
+
+export interface Badge {
+  id: string
+  name: string
+  description: string
+  icon: string
+  category: string
+  earned_at: string | null
+}
+
+export interface UserBadges {
+  badges: Badge[]
+  total_badges: number
+}
+
+export interface AnalyticsSummary {
+  total_posts: number
+  total_likes_received: number
+  total_comments_received: number
+  total_reposts_received: number
+  total_followers: number
+  total_following: number
+  avg_engagement_rate: number
+}
+
+export interface FollowerStat {
+  date: string
+  follower_count: number
+}
+
+export interface FollowerGrowth {
+  stats: FollowerStat[]
+  current_followers: number
+  growth_percentage: number
+}
+
+export interface PostInsight {
+  post_id: string
+  views: number
+  unique_views: number
+  impressions: number
+  likes_count: number
+  comments_count: number
+  reposts_count: number
+}
+
+export interface PostAnalytics {
+  insights: PostInsight[]
+  top_performing_post: PostInsight | null
+  total_views: number
+  avg_likes_per_post: number
+}
+
+export interface AnalyticsDashboard {
+  summary: AnalyticsSummary
+  follower_growth: FollowerGrowth
+  post_analytics: PostAnalytics
 }
 
 export interface Post {

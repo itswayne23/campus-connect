@@ -15,6 +15,7 @@ import { FollowersPage } from '@/pages/followers'
 import { FollowingPage } from '@/pages/following'
 import { BookmarksPage } from '@/pages/bookmarks'
 import { AdminPage } from '@/pages/admin'
+import { AnalyticsPage } from '@/pages/analytics'
 import { BottomNav } from '@/components/layout/bottom-nav'
 import { ErrorBoundary } from '@/components/error-boundary'
 import { useRealtime } from '@/hooks/use-realtime'
@@ -158,6 +159,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <AdminPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/analytics"
+        element={
+          <ProtectedRoute>
+            <AnalyticsPage />
           </ProtectedRoute>
         }
       />

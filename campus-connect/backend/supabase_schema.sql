@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     university TEXT,
     role TEXT DEFAULT 'user',
     is_active BOOLEAN DEFAULT true,
+    is_verified BOOLEAN DEFAULT false,
     followers_count INTEGER DEFAULT 0,
     following_count INTEGER DEFAULT 0,
     posts_count INTEGER DEFAULT 0,
@@ -356,3 +357,83 @@ CREATE POLICY "Users can view own scheduled posts" ON public.scheduled_posts FOR
 CREATE POLICY "Users can create scheduled posts" ON public.scheduled_posts FOR INSERT WITH CHECK (user_id = auth.uid());
 CREATE POLICY "Users can update own scheduled posts" ON public.scheduled_posts FOR UPDATE USING (user_id = auth.uid());
 CREATE POLICY "Users can delete own scheduled posts" ON public.scheduled_posts FOR DELETE USING (user_id = auth.uid());
+
+-- Badges definitions table
+CREATE TABLE IF NOT EXISTS public.badges (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name TEXT UNIQUE NOT NULL,
+    description TEXT NOT NULL,
+    icon TEXT NOT NULL,
+    category TEXT DEFAULT 'achievement' CHECK (category IN ('achievement', 'milestone', 'engagement', 'special')),
+    criteria_type TEXT NOT NULL,
+    criteria_value INTEGER DEFAULT 1,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- User badges junction table
+CREATE TABLE IF NOT EXISTS public.user_badges (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    badge_id UUID REFERENCES public.badges(id) ON DELETE CASCADE,
+    earned_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(user_id, badge_id)
+);
+
+-- Badge indexes
+CREATE INDEX IF NOT EXISTS idx_user_badges_user ON public.user_badges(user_id);
+CREATE INDEX IF NOT EXISTS idx_badges_category ON public.badges(category);
+
+-- Badge policies
+ALTER TABLE public.badges ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_badges ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Badges are viewable by everyone" ON public.badges FOR SELECT USING (true);
+CREATE POLICY "Users can view own badges" ON public.user_badges FOR SELECT USING (true);
+
+-- Insert default badges
+INSERT INTO public.badges (name, description, icon, category, criteria_type, criteria_value) VALUES
+('First Post', 'Made your first post', '📝', 'milestone', 'posts', 1),
+('Prolific Writer', 'Made 50 posts', '✍️', 'milestone', 'posts', 50),
+('Influencer', 'Made 500 posts', '⭐', 'milestone', 'posts', 500),
+('Social Butterfly', 'Made 10 friends', '🦋', 'milestone', 'followers', 10),
+('Rising Star', 'Reached 100 followers', '🌟', 'milestone', 'followers', 100),
+('Campus Celebrity', 'Reached 1000 followers', '🎓', 'milestone', 'followers', 1000),
+('Engaged', 'Made 100 likes', '❤️', 'engagement', 'likes_given', 100),
+('Loved', 'Received 100 likes', '💖', 'engagement', 'likes_received', 100),
+('Conversation Starter', 'Made 50 comments', '💬', 'engagement', 'comments', 50),
+('Viral', 'A post reached 100 likes', '🔥', 'special', 'post_likes', 100),
+('Early Bird', 'Joined in the first month', '🐦', 'special', 'early_join', 1),
+('Verified', 'Verified campus account', '✅', 'special', 'verified', 1)
+ON CONFLICT DO NOTHING;
+
+-- Post analytics table for tracking impressions and engagement
+CREATE TABLE IF NOT EXISTS public.post_analytics (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    post_id UUID REFERENCES public.posts(id) ON DELETE CASCADE,
+    views INTEGER DEFAULT 0,
+    unique_views INTEGER DEFAULT 0,
+    impressions INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(post_id)
+);
+
+-- Follower analytics for tracking follower growth
+CREATE TABLE IF NOT EXISTS public.follower_analytics (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    follower_count INTEGER NOT NULL,
+    recorded_at DATE NOT NULL DEFAULT CURRENT_DATE,
+    UNIQUE(user_id, recorded_at)
+);
+
+-- Post analytics indexes
+CREATE INDEX IF NOT EXISTS idx_post_analytics_post ON public.post_analytics(post_id);
+CREATE INDEX IF NOT EXISTS idx_follower_analytics_user ON public.follower_analytics(user_id);
+CREATE INDEX IF NOT EXISTS idx_follower_analytics_date ON public.follower_analytics(recorded_at);
+
+-- Analytics policies
+ALTER TABLE public.post_analytics ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.follower_analytics ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Post analytics are viewable by everyone" ON public.post_analytics FOR SELECT USING (true);
+CREATE POLICY "Users can view own follower analytics" ON public.follower_analytics FOR SELECT USING (true);

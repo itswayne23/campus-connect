@@ -10,6 +10,8 @@ from .endpoints.stories import router as stories_router
 from .endpoints.drafts import router as drafts_router
 from .endpoints.scheduled_posts import router as scheduled_posts_router
 from .endpoints.trending import router as trending_router
+from .endpoints.verification import router as verification_router
+from .endpoints.analytics import router as analytics_router
 
 
 api_router = APIRouter()
@@ -25,3 +27,5 @@ api_router.include_router(stories_router, prefix="/stories", tags=["Stories"])
 api_router.include_router(drafts_router, prefix="/drafts", tags=["Drafts"])
 api_router.include_router(scheduled_posts_router, prefix="/scheduled", tags=["Scheduled Posts"])
 api_router.include_router(trending_router, prefix="/trending", tags=["Trending"])
+api_router.include_router(verification_router, prefix="/verification", tags=["Verification & Badges"])
+api_router.include_router(analytics_router, prefix="/analytics", tags=["Analytics"])
