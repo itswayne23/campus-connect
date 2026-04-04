@@ -8,7 +8,6 @@ export function useNotifications() {
       const response = await api.get<{ notifications: any[]; unread_count: number; has_more: boolean }>('/notifications')
       return response.data
     },
-    refetchInterval: 15000,
   })
 }
 

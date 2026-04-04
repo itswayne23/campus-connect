@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useAuthStore } from '@/store/auth-store'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -37,6 +37,18 @@ export function SettingsPage() {
   const [pushMentions, setPushMentions] = useState(notificationSettings?.push_mentions ?? true)
   const [emailFollows, setEmailFollows] = useState(notificationSettings?.email_follows ?? true)
   const [emailMentions, setEmailMentions] = useState(notificationSettings?.email_mentions ?? true)
+
+  useEffect(() => {
+    if (notificationSettings) {
+      setPushLikes(notificationSettings.push_likes)
+      setPushComments(notificationSettings.push_comments)
+      setPushFollows(notificationSettings.push_follows)
+      setPushMessages(notificationSettings.push_messages)
+      setPushMentions(notificationSettings.push_mentions)
+      setEmailFollows(notificationSettings.email_follows)
+      setEmailMentions(notificationSettings.email_mentions)
+    }
+  }, [notificationSettings])
 
   const getInitials = (name: string) => {
     return name.slice(0, 2).toUpperCase()

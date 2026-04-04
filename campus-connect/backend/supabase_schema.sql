@@ -329,3 +329,30 @@ ALTER TABLE public.notification_settings ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view own notification settings" ON public.notification_settings FOR SELECT USING (user_id = auth.uid());
 CREATE POLICY "Users can update own notification settings" ON public.notification_settings FOR UPDATE USING (user_id = auth.uid());
 CREATE POLICY "Users can insert own notification settings" ON public.notification_settings FOR INSERT WITH CHECK (user_id = auth.uid());
+
+-- Scheduled Posts table
+CREATE TABLE IF NOT EXISTS public.scheduled_posts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    media_urls JSONB DEFAULT '[]',
+    category TEXT,
+    poll_data JSONB,
+    is_anonymous BOOLEAN DEFAULT false,
+    scheduled_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'published', 'cancelled')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Scheduled posts indexes
+CREATE INDEX IF NOT EXISTS idx_scheduled_posts_user ON public.scheduled_posts(user_id);
+CREATE INDEX IF NOT EXISTS idx_scheduled_posts_scheduled_at ON public.scheduled_posts(scheduled_at);
+CREATE INDEX IF NOT EXISTS idx_scheduled_posts_status ON public.scheduled_posts(status);
+
+-- Scheduled posts policies
+ALTER TABLE public.scheduled_posts ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view own scheduled posts" ON public.scheduled_posts FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY "Users can create scheduled posts" ON public.scheduled_posts FOR INSERT WITH CHECK (user_id = auth.uid());
+CREATE POLICY "Users can update own scheduled posts" ON public.scheduled_posts FOR UPDATE USING (user_id = auth.uid());
+CREATE POLICY "Users can delete own scheduled posts" ON public.scheduled_posts FOR DELETE USING (user_id = auth.uid());
